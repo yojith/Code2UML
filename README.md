@@ -17,7 +17,7 @@ Note: Graphviz must be installed.
 1. Open the command palette (`Ctrl+Shift+P`)
 2. Run `python2uml: Generate UML Diagram from Python Files`
 3. Select Python file(s)
-4. Choose save location and format
+4. Choose a save location and output format
 5. View your UML diagram
 
 ### Generate UML from Folders
@@ -25,7 +25,7 @@ Note: Graphviz must be installed.
 1. Open the command palette (`Ctrl+Shift+P`)
 2. Run `python2uml: Generate UML Diagram from Python Folders`
 3. Select folder(s) containing Python files
-4. Choose save location and format
+4. Choose a save location and output format
 5. View your UML diagram
 
 ## Requirements
@@ -35,7 +35,7 @@ Note: Graphviz must be installed.
 
 ### Install Graphviz
 
-1. Download the installer from the official site: https://graphviz.org/download/
+1. Download the installer from the official site: <https://graphviz.org/download/>
 2. Run the installer
 3. Check "Add Graphviz to PATH" during install (critical)
 4. Restart your terminal / VS Code

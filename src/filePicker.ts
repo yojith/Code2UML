@@ -18,8 +18,8 @@ export function uploadFiles(): Thenable<string[] | undefined> {
 export function uploadFolders(): Thenable<string[] | undefined> {
   const files = window.showOpenDialog({
     title: "Upload Python folders",
-    canSelectMany: true,
     canSelectFolders: true,
+    canSelectMany: true,
   });
   return files.then((uris) => {
     if (uris) {
