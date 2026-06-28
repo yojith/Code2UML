@@ -6,7 +6,7 @@ from pathlib import Path
 
 from graphviz import Digraph
 
-from model.enums import RelationshipType
+from model.enums import ClassKind, RelationshipType
 from model.uml_class import UMLClass
 from model.uml_diagram import UMLDiagram
 
@@ -42,6 +42,10 @@ class GraphvizRenderer:
         dot.render(output_path, format=file_extension, cleanup=True)
 
     def _class_label(self, uml_class: UMLClass) -> str:
+        title = uml_class.name
+        if uml_class.kind != ClassKind.CLASS:
+            title = f"<<{uml_class.kind.value}>> {title}"
+
         attribute_lines = ""
         for attribute in uml_class.attributes:
             type_suffix = f": {attribute.type_name}" if attribute.type_name else ""
@@ -54,7 +58,7 @@ class GraphvizRenderer:
             method_lines += f'{method.visibility} {method.name}({parameters}){return_suffix}<BR ALIGN="LEFT"/>'
 
         return f"""<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
-        <TR><TD>{uml_class.name}</TD></TR>
+        <TR><TD>{title}</TD></TR>
         <TR><TD ALIGN="LEFT">{attribute_lines}</TD></TR>
         <TR><TD ALIGN="LEFT">{method_lines}</TD></TR>
         </TABLE>>"""

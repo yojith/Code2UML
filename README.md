@@ -1,12 +1,12 @@
 # python2uml
 
-Convert Python source code into UML class diagrams directly in VS Code.
+Convert Python, Java, C++, and C source code into UML-style diagrams directly in VS Code.
 Note: Graphviz must be installed.
 
 ## Features
 
-- Generate UML diagrams from Python files or folders
-- Support multiple output formats: SVG, PDF, PNG, JPG
+- Generate UML diagrams from Python, Java, C++, and C files or folders
+- Support Graphviz output plus draw.io (`.drawio`) export
 - Clean, orthogonal diagram layout
 - Select save location via native file dialog
 
@@ -16,7 +16,7 @@ Note: Graphviz must be installed.
 
 1. Open the command palette (`Ctrl+Shift+P`)
 2. Run `python2uml: Generate UML Diagram from Python Files`
-3. Select Python file(s)
+3. Select source file(s)
 4. Choose a save location and output format
 5. View your UML diagram
 
@@ -24,9 +24,16 @@ Note: Graphviz must be installed.
 
 1. Open the command palette (`Ctrl+Shift+P`)
 2. Run `python2uml: Generate UML Diagram from Python Folders`
-3. Select folder(s) containing Python files
+3. Select folder(s) containing source files
 4. Choose a save location and output format
 5. View your UML diagram
+
+## C / C++ / Java Modeling Notes
+
+- Java and C++ are treated as source entities with class, interface, enum, and abstract-class detection.
+- Inner classes are emitted with qualified names such as `Outer.Inner`.
+- C has no classes, so the renderer treats each file as a container node and emits detected `struct` and `enum` declarations as separate nodes.
+- This is a pragmatic UML-style view, not a full language semantic model.
 
 ## Requirements
 

@@ -21,7 +21,8 @@ class DrawioRenderer:
         diagram_el = ET.SubElement(root, "diagram", name="Page-1")
         graph = ET.SubElement(diagram_el, "mxGraphModel")
         root_el = ET.SubElement(graph, "root")
-        ET.SubElement(root_el, "mxCell", id="0")
+
+        ET.SubElement(root_el, "mxCell", {"id": "0"})
         ET.SubElement(root_el, "mxCell", {"id": "1", "parent": "0"})
 
         positions = self._layout(diagram)
@@ -30,28 +31,49 @@ class DrawioRenderer:
             cell = ET.SubElement(
                 root_el,
                 "mxCell",
-                id=str(index),
-                value=self._label(uml_class),
-                style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;",
-                vertex="1",
-                parent="1",
+                {
+                    "id": str(index),
+                    "value": self._label(uml_class),
+                    "style": "rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;",
+                    "vertex": "1",
+                    "parent": "1",
+                },
             )
-            ET.SubElement(cell, "mxGeometry", x=str(x), y=str(y), width="220", height="140", **{"as": "geometry"})
-
+            ET.SubElement(
+                cell,
+                "mxGeometry",
+                {
+                    "x": str(x),
+                    "y": str(y),
+                    "width": "220",
+                    "height": "140",
+                    "as": "geometry",
+                },
+            )
         current_id = len(diagram.classes) + 2
         lookup = {name: str(i + 2) for i, name in enumerate(diagram.classes)}
+
         for relationship in diagram.relationships:
             edge = ET.SubElement(
                 root_el,
                 "mxCell",
-                id=str(current_id),
-                source=lookup.get(relationship.source, ""),
-                target=lookup.get(relationship.target, ""),
-                edge="1",
-                parent="1",
-                style=self._edge_style(relationship.relationship_type),
+                {
+                    "id": str(current_id),
+                    "source": lookup.get(relationship.source, ""),
+                    "target": lookup.get(relationship.target, ""),
+                    "edge": "1",
+                    "parent": "1",
+                    "style": self._edge_style(relationship.relationship_type),
+                },
             )
-            ET.SubElement(edge, "mxGeometry", relative="1", **{"as": "geometry"})
+            ET.SubElement(
+                edge,
+                "mxGeometry",
+                {
+                    "relative": "1",
+                    "as": "geometry",
+                },
+            )
             current_id += 1
 
         ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
