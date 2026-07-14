@@ -1,14 +1,14 @@
-"""AST loading utilities."""
+"""Language parser registration and dispatch."""
 
 from __future__ import annotations
 
-import ast
+from model.enums import ProjectLanguage
+from parser.normalized_ast import NormalizedModule
+from parser.python_parser import PythonParser
+
+PARSERS = {ProjectLanguage.PYTHON: PythonParser}
 
 
 class AbstractSyntaxTreeLoader:
-    def load(self, *files: str) -> list[ast.AST]:
-        tree_list: list[ast.AST] = []
-        for filepath in files:
-            with open(filepath, "r", encoding="utf-8") as file:
-                tree_list.append(ast.parse(file.read()))
-        return tree_list
+    def load(self, language: ProjectLanguage, *paths: str) -> list[NormalizedModule]:
+        return PARSERS[language]().parse(*paths)
