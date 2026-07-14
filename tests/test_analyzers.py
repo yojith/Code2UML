@@ -1,9 +1,12 @@
+import pytest
+
 from analyzers.class_analyzer import ClassAnalyzer
 from analyzers.relationship_analyzer import RelationshipAnalyzer
 from model.enums import ClassKind, RelationshipType
 from parser.normalized_ast import (
     NormalizedAttribute,
     NormalizedClass,
+    NormalizedLocalInstantiation,
     NormalizedMemberAssignment,
     NormalizedMethod,
     NormalizedModule,
@@ -18,12 +21,13 @@ def relationships(diagram, source, target):
 
 def module_with_classes(source, target, evidence=()):
     owner = NormalizedClass(name=source)
-    if "association" in evidence:
-        owner.type_references.append(NormalizedTypeReference(target, "local"))
-    if "aggregation" in evidence:
-        owner.member_assignments.append(NormalizedMemberAssignment("target", target, "supplied"))
-    if "composition" in evidence:
-        owner.member_assignments.append(NormalizedMemberAssignment("target", target, "constructed"))
+    for relationship_type in evidence:
+        if relationship_type == "association":
+            owner.type_references.append(NormalizedTypeReference(target, "local"))
+        elif relationship_type == "aggregation":
+            owner.member_assignments.append(NormalizedMemberAssignment("target", target, "supplied"))
+        elif relationship_type == "composition":
+            owner.member_assignments.append(NormalizedMemberAssignment("target", target, "constructed"))
     return NormalizedModule(path="example.py", classes=[owner, NormalizedClass(name=target)])
 
 
@@ -92,7 +96,7 @@ def test_concrete_class_implements_project_interface():
 
 
 def test_strongest_relationship_evidence_wins():
-    modules = [module_with_classes("Order", "Customer", evidence=("association", "aggregation", "composition"))]
+    modules = [module_with_classes("Order", "Customer", evidence=("composition", "aggregation", "association"))]
     diagram = ClassAnalyzer().analyze(modules)
     RelationshipAnalyzer().analyze(modules, diagram)
     assert relationships(diagram, "Order", "Customer") == {RelationshipType.COMPOSITION}
@@ -105,3 +109,25 @@ def test_external_types_stay_in_signatures_without_edges():
     assert set(diagram.classes) == {"Controller"}
     assert diagram.relationships == []
     assert "request: Request" in diagram.classes["Controller"].methods[0].parameters
+
+
+@pytest.mark.parametrize(
+    "candidate",
+    [
+        NormalizedClass("Controller", member_assignments=[NormalizedMemberAssignment("request", "External", "constructed")]),
+        NormalizedClass("Controller", methods=[NormalizedMethod("handle", return_type="External")]),
+        NormalizedClass(
+            "Controller",
+            methods=[NormalizedMethod("handle", local_instantiations=[NormalizedLocalInstantiation("External", assigned_name="request")])],
+        ),
+        NormalizedClass("Controller", type_references=[NormalizedTypeReference("External", "local")]),
+    ],
+    ids=["member-assignment", "return", "instantiation", "type-reference"],
+)
+def test_external_relationship_candidates_are_suppressed(candidate):
+    modules = [NormalizedModule(path="controller.py", classes=[candidate])]
+    diagram = ClassAnalyzer().analyze(modules)
+
+    RelationshipAnalyzer().analyze(modules, diagram)
+
+    assert diagram.relationships == []
