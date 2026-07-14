@@ -129,6 +129,19 @@ def test_non_constructor_member_construction_is_only_an_association(tmp_path):
     assert [(relationship.source, relationship.target, relationship.relationship_type) for relationship in diagram.relationships] == [("Service", "Cache", RelationshipType.ASSOCIATION)]
 
 
+def test_setter_preserves_supplied_member_assignment(tmp_path):
+    source = write_source(
+        tmp_path,
+        "setter.py",
+        'class Repo:\n    pass\n\nclass Service:\n    def set_repo(self, repo: "Repo"):\n        self.repo = repo\n',
+    )
+
+    service = class_by_name(PythonParser().parse(str(source))[0], "Service")
+
+    assert assignment(service, "repo").ownership == "supplied"
+    assert assignment(service, "repo").type_name == "Repo"
+
+
 @pytest.mark.parametrize(
     "body",
     [

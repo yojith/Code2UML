@@ -79,8 +79,7 @@ class PythonParser:
                 method = self._normalize_method(item)
                 methods.append(method)
                 candidates = self._attributes_from_method(item)
-                if method.is_constructor:
-                    assignments.extend(self._member_assignments(item, method.parameters))
+                assignments.extend(self._member_assignments(item, method.parameters, include_constructed=method.is_constructor))
                 references.extend(self._method_references(method))
             elif isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
                 candidates = [self._attribute(item.target.id, annotation_to_str(item.annotation), is_static=True)]
@@ -157,6 +156,7 @@ class PythonParser:
         self,
         node: ast.FunctionDef | ast.AsyncFunctionDef,
         parameters: list[NormalizedParameter],
+        include_constructed: bool,
     ) -> list[NormalizedMemberAssignment]:
         parameter_types = {parameter.name: parameter.type_name for parameter in parameters if parameter.type_name}
         assignments: list[NormalizedMemberAssignment] = []
@@ -168,7 +168,7 @@ class PythonParser:
             for target in targets:
                 if not isinstance(target, ast.Attribute) or not self._is_self_attribute(target):
                     continue
-                if type_name := self._call_target_name(inner.value):
+                if include_constructed and (type_name := self._call_target_name(inner.value)):
                     assignments.append(NormalizedMemberAssignment(target.attr, type_name, "constructed"))
                 elif isinstance(inner.value, ast.Name) and (type_name := normalize_type_name(annotation) or parameter_types.get(inner.value.id)):
                     assignments.append(NormalizedMemberAssignment(target.attr, type_name, "supplied"))
