@@ -10,5 +10,10 @@ PARSERS = {ProjectLanguage.PYTHON: PythonParser}
 
 
 class AbstractSyntaxTreeLoader:
-    def load(self, language: ProjectLanguage, *paths: str) -> list[NormalizedModule]:
+    def load(self, *args) -> list[NormalizedModule]:
+        language = ProjectLanguage.PYTHON
+        paths = args
+        if args and isinstance(args[0], ProjectLanguage):
+            language = args[0]
+            paths = args[1:]
         return PARSERS[language]().parse(*paths)

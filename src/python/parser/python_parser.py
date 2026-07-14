@@ -79,7 +79,8 @@ class PythonParser:
                 method = self._normalize_method(item)
                 methods.append(method)
                 candidates = self._attributes_from_method(item)
-                assignments.extend(self._member_assignments(item, method.parameters))
+                if method.is_constructor:
+                    assignments.extend(self._member_assignments(item, method.parameters))
                 references.extend(self._method_references(method))
             elif isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
                 candidates = [self._attribute(item.target.id, annotation_to_str(item.annotation), is_static=True)]
@@ -91,7 +92,8 @@ class PythonParser:
 
         bases = [name for base in node.bases if (name := self._resolved_name(base))]
         has_abstract_method = any(method.is_abstract for method in methods)
-        kind = ClassKind.INTERFACE if "Protocol" in bases else ClassKind.ABSTRACT_CLASS if {"ABC", "ABCMeta"} & set(bases) or has_abstract_method else ClassKind.CLASS
+        has_abstract_metaclass = any(keyword.arg == "metaclass" and self._resolved_name(keyword.value) == "ABCMeta" for keyword in node.keywords)
+        kind = ClassKind.INTERFACE if "Protocol" in bases else ClassKind.ABSTRACT_CLASS if {"ABC", "ABCMeta"} & set(bases) or has_abstract_method or has_abstract_metaclass else ClassKind.CLASS
         return NormalizedClass(
             name=node.name,
             kind=kind,
@@ -99,16 +101,16 @@ class PythonParser:
             bases=bases,
             attributes=attributes,
             methods=methods,
-            member_assignments=self._dedupe_assignments(assignments),
+            member_assignments=assignments,
             type_references=references,
         )
 
     def _normalize_method(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> NormalizedMethod:
-        parameters = [
-            NormalizedParameter(arg.arg, normalize_type_name(annotation_to_str(arg.annotation)))
-            for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
-            if arg.arg not in {"self", "cls"}
-        ]
+        decorators = {self._resolved_name(decorator) for decorator in node.decorator_list}
+        positional = [*node.args.posonlyargs, *node.args.args]
+        if "staticmethod" not in decorators and positional:
+            positional = positional[1:]
+        parameters = [NormalizedParameter(arg.arg, normalize_type_name(annotation_to_str(arg.annotation))) for arg in [*positional, *node.args.kwonlyargs]]
         if node.args.vararg:
             parameters.append(NormalizedParameter(node.args.vararg.arg, normalize_type_name(annotation_to_str(node.args.vararg.annotation))))
         if node.args.kwarg:
@@ -130,7 +132,6 @@ class PythonParser:
             elif isinstance(inner, ast.Call) and (append_call := self._append_call(inner)):
                 append_calls.append(append_call)
 
-        decorators = {self._resolved_name(decorator) for decorator in node.decorator_list}
         return NormalizedMethod(
             name=node.name,
             visibility="-" if is_private(node.name) and node.name != "__init__" else "+",
@@ -216,6 +217,3 @@ class PythonParser:
 
     def _is_self_attribute(self, node: ast.Attribute) -> bool:
         return isinstance(node.value, ast.Name) and node.value.id == "self"
-
-    def _dedupe_assignments(self, assignments: list[NormalizedMemberAssignment]) -> list[NormalizedMemberAssignment]:
-        return list({assignment.member_name: assignment for assignment in assignments}.values())
