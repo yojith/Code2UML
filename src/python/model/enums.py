@@ -13,6 +13,7 @@ class Visibility(str, Enum):
 
 class RelationshipType(str, Enum):
     INHERITANCE = "inheritance"
+    IMPLEMENTATION = "implementation"
     ASSOCIATION = "association"
     AGGREGATION = "aggregation"
     COMPOSITION = "composition"
