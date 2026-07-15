@@ -22,10 +22,12 @@ from parser.normalized_ast import (
 from parser.tree_sitter_helpers import node_text, parse_tree, tree_diagnostics, walk_named
 
 C_LANGUAGE = Language(tree_sitter_c.language())
+PREPROC_CONTAINERS = {"preproc_if", "preproc_ifdef", "preproc_else", "preproc_elif"}
 
 
 class CParser:
     def parse(self, *paths: str) -> list[NormalizedModule]:
+        self._type_aliases: dict[str, str] = {}
         names = self._file_class_names(paths)
         parsed: list[tuple[bytes, Node, NormalizedModule, NormalizedClass]] = []
         structs: dict[str, NormalizedClass] = {}
@@ -47,8 +49,9 @@ class CParser:
         for source, root, module, file_class in parsed:
             self._populate_file(root, source, module.path, file_class, structs, declared, path_to_file, basename_to_files, attached)
 
-        for item in structs.values():
-            item.member_assignments[:] = [assignment for assignment in item.member_assignments if assignment.type_name in declared]
+        for _, _, module, _ in parsed:
+            for item in module.classes[1:]:
+                item.member_assignments[:] = [assignment for assignment in item.member_assignments if assignment.type_name in declared]
         return [module for _, _, module, _ in parsed]
 
     def _collect_structs(
@@ -64,9 +67,14 @@ class CParser:
             if node.type != "struct_specifier" or node.child_by_field_name("body") is None or node.id in seen:
                 continue
             seen.add(node.id)
-            name = node_text(source, node.child_by_field_name("name")) or self._anonymous_struct_name(node, source)
+            tag = node_text(source, node.child_by_field_name("name")) or ""
+            alias = node_text(source, node.parent.child_by_field_name("declarator")) if node.parent is not None and node.parent.type == "type_definition" else None
+            name = alias or tag or self._anonymous_struct_name(node, source)
             if not name or name in structs:
                 continue
+            self._type_aliases[name] = name
+            if tag:
+                self._type_aliases[tag] = name
             attributes, assignments = self._fields(node.child_by_field_name("body"), source)
             normalized = NormalizedClass(name, ClassKind.STRUCT, file_name, attributes=attributes, member_assignments=assignments)
             classes.append(normalized)
@@ -112,7 +120,9 @@ class CParser:
         attached: dict[tuple[str, str, tuple[str | None, ...]], NormalizedMethod],
     ) -> None:
         for node in root.named_children:
-            if node.type in {"preproc_def", "preproc_function_def"}:
+            if node.type in PREPROC_CONTAINERS:
+                self._populate_file(node, source, path, file_class, structs, declared, path_to_file, basename_to_files, attached)
+            elif node.type in {"preproc_def", "preproc_function_def"}:
                 name = node_text(source, node.child_by_field_name("name")) or ""
                 if name:
                     file_class.attributes.append(NormalizedAttribute(name, "macro", is_static=True))
@@ -122,9 +132,9 @@ class CParser:
                     file_class.type_references.append(NormalizedTypeReference(target.name, "include"))
             elif node.type in {"declaration", "function_definition"}:
                 function = self._function_declarator(node)
-                if function is not None:
+                if function is not None and not self._has_pointer(function.child_by_field_name("declarator")):
                     self._attach_function(node, function, source, file_class, structs, declared, attached)
-                elif node.type == "declaration" and not any(child.type == "struct_specifier" and child.child_by_field_name("body") is not None for child in node.named_children):
+                elif node.type == "declaration":
                     file_class.attributes.extend(self._global_attributes(node, source))
 
     def _include_target(
@@ -271,7 +281,8 @@ class CParser:
     def _type_endpoint(self, spelling: str) -> str:
         value = spelling.replace("*", " ").strip()
         parts = [part for part in value.split() if part not in {"const", "volatile", "struct"}]
-        return parts[-1] if parts else ""
+        endpoint = parts[-1] if parts else ""
+        return self._type_aliases.get(endpoint, endpoint)
 
     def _file_class_names(self, paths: tuple[str, ...]) -> dict[str, str]:
         resolved = [Path(path).resolve() for path in paths]

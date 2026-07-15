@@ -150,3 +150,87 @@ def test_c_file_class_names_are_stable_and_collision_safe(tmp_path):
 
     assert len(set(forward_names.values())) == 2
     assert forward_names == reverse_names
+
+
+def test_c_parser_traverses_guarded_headers_and_uses_public_typedef_alias(tmp_path):
+    header = write_source(
+        tmp_path,
+        "guarded.h",
+        """
+#ifndef GUARDED_H
+#define GUARDED_H
+#define GUARDED_LIMIT 8
+
+typedef struct Internal {
+    int id;
+} Public;
+
+struct Holder {
+    struct Internal value;
+    Public *reference;
+};
+
+extern int guarded_count;
+void public_update(Public *self);
+#endif
+""",
+    )
+    implementation = write_source(
+        tmp_path,
+        "guarded.c",
+        """
+#include "guarded.h"
+void public_update(Public *self) {}
+""",
+    )
+
+    modules = CParser().parse(str(header), str(implementation))
+    header_class = file_class(modules[0])
+    public = class_by_name(modules, "Public")
+    holder = class_by_name(modules, "Holder")
+
+    assert all(item.name != "Internal" for module in modules for item in module.classes)
+    assert [item.name for item in public.methods] == ["public_update"]
+    assert assignment(holder, "value").type_name == "Public"
+    assert assignment(holder, "reference").type_name == "Public"
+    attribute_names = [item.name for item in header_class.attributes]
+    assert attribute_names.count("GUARDED_H") == 1
+    assert attribute_names.count("GUARDED_LIMIT") == 1
+    assert attribute_names.count("guarded_count") == 1
+
+
+def test_c_parser_keeps_combined_named_and_anonymous_struct_objects(tmp_path):
+    source = write_source(
+        tmp_path,
+        "objects.c",
+        """
+struct Item { int id; } current;
+struct { int value; } singleton;
+""",
+    )
+
+    module = CParser().parse(str(source))[0]
+    owner = file_class(module)
+
+    assert class_by_name([module], "Item").parent == owner.name
+    assert class_by_name([module], "singleton").parent == owner.name
+    assert {item.name for item in owner.attributes} == {"current", "singleton"}
+
+
+def test_c_parser_models_global_function_pointer_as_attribute(tmp_path):
+    source = write_source(
+        tmp_path,
+        "callbacks.h",
+        """
+typedef struct Service { int id; } Service;
+void (*service_callback)(Service *self);
+""",
+    )
+
+    module = CParser().parse(str(source))[0]
+    owner = file_class(module)
+    service = class_by_name([module], "Service")
+
+    assert "service_callback" in {item.name for item in owner.attributes}
+    assert "service_callback" not in {item.name for item in owner.methods}
+    assert "service_callback" not in {item.name for item in service.methods}
