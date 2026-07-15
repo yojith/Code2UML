@@ -251,3 +251,73 @@ Port::~Port() {}
         assert assignment(normalized_class, "created_", "constructed").type_name == "Foo"
         assert assignment(normalized_class, "value_", "constructed").type_name == "Foo"
         assert assignment(normalized_class, "empty_", "constructed").type_name == "Foo"
+
+
+def test_cpp_parser_preserves_return_and_member_qualifiers_when_linking_overloads(tmp_path):
+    header = write_source(
+        tmp_path,
+        "views.hpp",
+        """
+class Foo {};
+
+class View {
+public:
+    Foo& get();
+    const Foo& get() const;
+    const Foo* pointer() const;
+private:
+    Foo value_;
+};
+""",
+    )
+    implementation = write_source(
+        tmp_path,
+        "views.cpp",
+        """
+Foo& View::get() {
+    Foo mutable_local;
+    return value_;
+}
+
+const Foo& View::get() const {
+    Foo const_local;
+    Foo second_const_local;
+    return value_;
+}
+
+const Foo* View::pointer() const { return &value_; }
+""",
+    )
+
+    view = class_by_name(CppParser().parse(str(header), str(implementation))[0], "View")
+    methods = {method.return_type: method for method in view.methods if method.name in {"get", "pointer"}}
+
+    assert set(methods) == {"Foo&", "const Foo&", "const Foo*"}
+    assert [(item.class_name, item.assigned_name) for item in methods["Foo&"].local_instantiations] == [("Foo", "mutable_local")]
+    assert [(item.class_name, item.assigned_name) for item in methods["const Foo&"].local_instantiations] == [
+        ("Foo", "const_local"),
+        ("Foo", "second_const_local"),
+    ]
+
+
+def test_cpp_empty_initializer_only_constructs_value_members(tmp_path):
+    source = write_source(
+        tmp_path,
+        "empty.cpp",
+        """
+class Foo {};
+
+class Owner {
+public:
+    Owner(Foo& reference) : pointer_(), reference_(reference), value_() {}
+private:
+    Foo* pointer_;
+    Foo& reference_;
+    Foo value_;
+};
+""",
+    )
+
+    owner = class_by_name(CppParser().parse(str(source))[0], "Owner")
+
+    assert {(item.member_name, item.type_name) for item in owner.member_assignments if item.ownership == "constructed"} == {("value_", "Foo")}

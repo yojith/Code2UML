@@ -25,6 +25,7 @@ CLASS_NODES = {"class_specifier", "struct_specifier"}
 class CppParser:
     def parse(self, *paths: str) -> list[NormalizedModule]:
         self._concrete_destructors: set[str] = set()
+        self._method_qualifiers: dict[int, tuple[str, ...]] = {}
         parsed: list[tuple[bytes, Node, NormalizedModule]] = []
         for path in paths:
             source, root = parse_tree(path, CPP_LANGUAGE)
@@ -135,6 +136,7 @@ class CppParser:
         body = container.child_by_field_name("body")
         if body is not None:
             method.local_instantiations.extend(self._local_instantiations(body, source))
+        self._method_qualifiers[id(method)] = tuple(node_text(source, child) or "" for child in declarator.named_children if child.type in {"type_qualifier", "ref_qualifier"})
         return method
 
     def _attach_definitions(self, root: Node, source: bytes, classes: dict[str, NormalizedClass]) -> None:
@@ -183,7 +185,9 @@ class CppParser:
             if value_name in parameter_types:
                 result.append(NormalizedMemberAssignment(member, self._relationship_name(parameter_types[value_name] or ""), "supplied"))
             elif value is None:
-                result.append(NormalizedMemberAssignment(member, self._relationship_name(field_types.get(member) or ""), "constructed"))
+                field_type = field_types.get(member) or ""
+                if field_type and "*" not in field_type and "&" not in field_type:
+                    result.append(NormalizedMemberAssignment(member, self._relationship_name(field_type), "constructed"))
             elif value.type == "new_expression":
                 result.append(NormalizedMemberAssignment(member, self._relationship_name(node_text(source, value.child_by_field_name("type")) or ""), "constructed"))
             elif value.type == "compound_literal_expression":
@@ -238,10 +242,12 @@ class CppParser:
             return None
         outer = container.child_by_field_name("declarator") or declarator
         name_node = declarator.child_by_field_name("declarator")
-        return self._type_spelling(type_node, outer, name_node or declarator, source)
+        spelling = self._type_spelling(type_node, outer, name_node or declarator, source)
+        qualifiers = [node_text(source, child) or "" for child in container.named_children if child.type == "type_qualifier" and child.end_byte <= type_node.start_byte]
+        return " ".join([*qualifiers, spelling])
 
-    def _method_signature(self, method: NormalizedMethod) -> tuple[str, tuple[str, ...]]:
-        return method.name, tuple((parameter.type_name or "").replace(" ", "") for parameter in method.parameters)
+    def _method_signature(self, method: NormalizedMethod) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
+        return method.name, tuple((parameter.type_name or "").replace(" ", "") for parameter in method.parameters), self._method_qualifiers.get(id(method), ())
 
     def _field_declarators(self, node: Node) -> list[Node]:
         return [
