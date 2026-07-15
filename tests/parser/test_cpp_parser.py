@@ -172,3 +172,82 @@ def test_cpp_parser_recovers_diagnostics_and_dispatcher_registers_adapter(tmp_pa
     assert {item.name for item in module.classes} >= {"Before", "After"}
     assert module.diagnostics
     assert all(item.path == str(broken) and item.line > 0 and item.column > 0 for item in module.diagnostics)
+
+
+def test_cpp_parser_links_headers_definitions_overloads_and_initializer_evidence(tmp_path):
+    header = write_source(
+        tmp_path,
+        "models.hpp",
+        """
+class Foo {};
+
+class Port {
+public:
+    virtual void send() = 0;
+    virtual ~Port();
+};
+
+class InlineOwner {
+public:
+    InlineOwner(Foo* supplied) : supplied_(supplied), created_(new Foo()), value_(Foo{}), empty_() {}
+private:
+    Foo* supplied_;
+    Foo* created_;
+    Foo value_;
+    Foo empty_;
+};
+
+class Owner {
+public:
+    Owner(Foo* supplied);
+    Owner(int count);
+    Owner(float ratio);
+    Foo* get();
+    Foo& ref();
+private:
+    Foo* supplied_;
+    Foo* created_;
+    Foo value_;
+    Foo empty_;
+};
+""",
+    )
+    implementation = write_source(
+        tmp_path,
+        "models.cpp",
+        """
+Owner::Owner(Foo* supplied)
+    : supplied_(supplied), created_(new Foo()), value_(Foo{}), empty_() {}
+
+Owner::Owner(int count) {
+    Foo integer_local;
+}
+
+Owner::Owner(float ratio) {
+    Foo float_local;
+    Foo another_float_local;
+}
+
+Foo* Owner::get() { return created_; }
+Foo& Owner::ref() { return value_; }
+Port::~Port() {}
+""",
+    )
+
+    modules = CppParser().parse(str(header), str(implementation))
+    owner = class_by_name(modules[0], "Owner")
+    inline = class_by_name(modules[0], "InlineOwner")
+
+    assert class_by_name(modules[0], "Port").kind is ClassKind.ABSTRACT_CLASS
+    assert {(method.name, method.return_type) for method in owner.methods if method.name in {"get", "ref"}} == {("get", "Foo*"), ("ref", "Foo&")}
+    constructors = {method.parameters[0].type_name: method for method in owner.methods if method.is_constructor}
+    assert [(item.class_name, item.assigned_name) for item in constructors["int"].local_instantiations] == [("Foo", "integer_local")]
+    assert [(item.class_name, item.assigned_name) for item in constructors["float"].local_instantiations] == [
+        ("Foo", "float_local"),
+        ("Foo", "another_float_local"),
+    ]
+    for normalized_class in (owner, inline):
+        assert assignment(normalized_class, "supplied_", "supplied").type_name == "Foo"
+        assert assignment(normalized_class, "created_", "constructed").type_name == "Foo"
+        assert assignment(normalized_class, "value_", "constructed").type_name == "Foo"
+        assert assignment(normalized_class, "empty_", "constructed").type_name == "Foo"

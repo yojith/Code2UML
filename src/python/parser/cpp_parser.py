@@ -24,21 +24,22 @@ CLASS_NODES = {"class_specifier", "struct_specifier"}
 
 class CppParser:
     def parse(self, *paths: str) -> list[NormalizedModule]:
-        return [self._parse_path(path) for path in paths]
-
-    def _parse_path(self, path: str) -> NormalizedModule:
         self._concrete_destructors: set[str] = set()
-        source, root = parse_tree(path, CPP_LANGUAGE)
-        classes: list[NormalizedClass] = []
-        self._collect_classes(root, source, classes, None)
-        by_name = {item.name: item for item in classes}
-        self._attach_definitions(root, source, by_name)
+        parsed: list[tuple[bytes, Node, NormalizedModule]] = []
+        for path in paths:
+            source, root = parse_tree(path, CPP_LANGUAGE)
+            classes: list[NormalizedClass] = []
+            self._collect_classes(root, source, classes, None)
+            parsed.append((source, root, NormalizedModule(path, classes, tree_diagnostics(path, root))))
+        by_name = {item.name: item for _, _, module in parsed for item in module.classes}
+        for source, root, _ in parsed:
+            self._attach_definitions(root, source, by_name)
         declared = set(by_name)
-        for item in classes:
+        for item in by_name.values():
             for method in item.methods:
                 method.local_instantiations[:] = [local for local in method.local_instantiations if local.class_name in declared]
             item.kind = self._class_kind(item, item.kind)
-        return NormalizedModule(path, classes, tree_diagnostics(path, root))
+        return [module for _, _, module in parsed]
 
     def _collect_classes(self, node: Node, source: bytes, classes: list[NormalizedClass], parent: str | None) -> None:
         for child in node.named_children:
@@ -59,6 +60,7 @@ class CppParser:
         methods: list[NormalizedMethod] = []
         assignments: list[NormalizedMemberAssignment] = []
         references: list[NormalizedTypeReference] = []
+        constructors: list[tuple[Node, NormalizedMethod]] = []
         body = node.child_by_field_name("body")
         if body is not None:
             for member in body.named_children:
@@ -70,10 +72,14 @@ class CppParser:
                     method = self._normalize_method(member, declaration, source, name, visibility)
                     methods.append(method)
                     references.extend(self._method_references(method))
+                    if method.is_constructor:
+                        constructors.append((member, method))
                 elif member.type == "field_declaration" and not any(child.type in CLASS_NODES for child in member.named_children):
                     member_attributes, member_assignments = self._normalize_fields(member, source, visibility)
                     attributes.extend(member_attributes)
                     assignments.extend(member_assignments)
+        for constructor, method in constructors:
+            assignments.extend(self._initializer_assignments(constructor, method.parameters, attributes, source))
         return NormalizedClass(
             name=name,
             kind=ClassKind.STRUCT if node.type == "struct_specifier" else ClassKind.CLASS,
@@ -124,7 +130,7 @@ class CppParser:
             is_pure_virtual=pure,
             is_static=any(child.type == "storage_class_specifier" and node_text(source, child) == "static" for child in container.named_children),
             parameters=parameters,
-            return_type=None if is_constructor or name.startswith("~") else node_text(source, container.child_by_field_name("type")),
+            return_type=None if is_constructor or name.startswith("~") else self._return_type(container, declarator, source),
         )
         body = container.child_by_field_name("body")
         if body is not None:
@@ -146,7 +152,8 @@ class CppParser:
             if normalized_class is None:
                 continue
             method = self._normalize_method(node, declarator, source, owner, "+")
-            existing = next((item for item in normalized_class.methods if item.name == method.name and len(item.parameters) == len(method.parameters)), None)
+            signature = self._method_signature(method)
+            existing = next((item for item in normalized_class.methods if self._method_signature(item) == signature), None)
             if existing is None:
                 normalized_class.methods.append(method)
                 existing = method
@@ -155,11 +162,13 @@ class CppParser:
                 existing.parameters = method.parameters
                 existing.return_type = method.return_type
                 existing.local_instantiations = method.local_instantiations
+                normalized_class.type_references.extend(NormalizedTypeReference(item.class_name, "local") for item in method.local_instantiations)
             if method.is_constructor:
-                normalized_class.member_assignments.extend(self._initializer_assignments(node, method.parameters, source))
+                normalized_class.member_assignments.extend(self._initializer_assignments(node, method.parameters, normalized_class.attributes, source))
 
-    def _initializer_assignments(self, node: Node, parameters: list[NormalizedParameter], source: bytes) -> list[NormalizedMemberAssignment]:
+    def _initializer_assignments(self, node: Node, parameters: list[NormalizedParameter], attributes: list[NormalizedAttribute], source: bytes) -> list[NormalizedMemberAssignment]:
         parameter_types = {item.name: item.type_name for item in parameters}
+        field_types = {item.name: item.type_name for item in attributes}
         result: list[NormalizedMemberAssignment] = []
         initializers = next((child for child in node.named_children if child.type == "field_initializer_list"), None)
         if initializers is None:
@@ -173,6 +182,12 @@ class CppParser:
             value_name = node_text(source, value) if value is not None and value.type == "identifier" else None
             if value_name in parameter_types:
                 result.append(NormalizedMemberAssignment(member, self._relationship_name(parameter_types[value_name] or ""), "supplied"))
+            elif value is None:
+                result.append(NormalizedMemberAssignment(member, self._relationship_name(field_types.get(member) or ""), "constructed"))
+            elif value.type == "new_expression":
+                result.append(NormalizedMemberAssignment(member, self._relationship_name(node_text(source, value.child_by_field_name("type")) or ""), "constructed"))
+            elif value.type == "compound_literal_expression":
+                result.append(NormalizedMemberAssignment(member, self._relationship_name(node_text(source, value.child_by_field_name("type")) or ""), "constructed"))
         return result
 
     def _local_instantiations(self, body: Node, source: bytes) -> list[NormalizedLocalInstantiation]:
@@ -211,9 +226,22 @@ class CppParser:
 
     def _method_declaration(self, node: Node) -> Node | None:
         declarator = node.child_by_field_name("declarator")
-        if declarator is not None and declarator.type == "function_declarator":
-            return declarator
+        while declarator is not None:
+            if declarator.type == "function_declarator":
+                return declarator
+            declarator = declarator.child_by_field_name("declarator") or next(iter(declarator.named_children), None)
         return next((child for child in node.named_children if child.type == "function_declarator"), None)
+
+    def _return_type(self, container: Node, declarator: Node, source: bytes) -> str | None:
+        type_node = container.child_by_field_name("type")
+        if type_node is None:
+            return None
+        outer = container.child_by_field_name("declarator") or declarator
+        name_node = declarator.child_by_field_name("declarator")
+        return self._type_spelling(type_node, outer, name_node or declarator, source)
+
+    def _method_signature(self, method: NormalizedMethod) -> tuple[str, tuple[str, ...]]:
+        return method.name, tuple((parameter.type_name or "").replace(" ", "") for parameter in method.parameters)
 
     def _field_declarators(self, node: Node) -> list[Node]:
         return [
