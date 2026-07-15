@@ -234,3 +234,12 @@ void (*service_callback)(Service *self);
     assert "service_callback" in {item.name for item in owner.attributes}
     assert "service_callback" not in {item.name for item in owner.methods}
     assert "service_callback" not in {item.name for item in service.methods}
+
+
+def test_c_parser_models_every_comma_separated_function_pointer_as_attribute(tmp_path):
+    source = write_source(tmp_path, "callbacks.c", "void (*first)(int), (*second)(int);\n")
+
+    owner = file_class(CParser().parse(str(source))[0])
+
+    assert {item.name for item in owner.attributes} == {"first", "second"}
+    assert {item.name for item in owner.methods}.isdisjoint({"first", "second"})

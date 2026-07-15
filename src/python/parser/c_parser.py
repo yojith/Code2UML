@@ -130,12 +130,17 @@ class CParser:
                 target = self._include_target(node, source, path, path_to_file, basename_to_files)
                 if target is not None:
                     file_class.type_references.append(NormalizedTypeReference(target.name, "include"))
-            elif node.type in {"declaration", "function_definition"}:
+            elif node.type == "function_definition":
                 function = self._function_declarator(node)
-                if function is not None and not self._has_pointer(function.child_by_field_name("declarator")):
+                if function is not None:
                     self._attach_function(node, function, source, file_class, structs, declared, attached)
-                elif node.type == "declaration":
-                    file_class.attributes.extend(self._global_attributes(node, source))
+            elif node.type == "declaration":
+                for declarator in self._declarators(node):
+                    function = self._function_declarator(declarator)
+                    if function is not None and not self._has_pointer(function.child_by_field_name("declarator")):
+                        self._attach_function(node, function, source, file_class, structs, declared, attached)
+                    else:
+                        file_class.attributes.extend(self._global_attributes(node, source, [declarator]))
 
     def _include_target(
         self,
@@ -224,10 +229,10 @@ class CParser:
                     result.append(NormalizedLocalInstantiation(type_name, node_text(source, identifier)))
         return result
 
-    def _global_attributes(self, declaration: Node, source: bytes) -> list[NormalizedAttribute]:
+    def _global_attributes(self, declaration: Node, source: bytes, declarators: list[Node] | None = None) -> list[NormalizedAttribute]:
         type_node = declaration.child_by_field_name("type")
         result: list[NormalizedAttribute] = []
-        for declarator in self._declarators(declaration):
+        for declarator in declarators or self._declarators(declaration):
             identifier = self._identifier(declarator)
             if identifier is None:
                 continue
@@ -244,7 +249,7 @@ class CParser:
         return type_name
 
     def _function_declarator(self, node: Node) -> Node | None:
-        declarator = node.child_by_field_name("declarator")
+        declarator = node if node.type == "function_declarator" else node.child_by_field_name("declarator")
         while declarator is not None:
             if declarator.type == "function_declarator":
                 return declarator
@@ -252,11 +257,7 @@ class CParser:
         return None
 
     def _declarators(self, node: Node) -> list[Node]:
-        return [
-            child
-            for child in node.named_children
-            if child == node.child_by_field_name("declarator") or child.type in {"identifier", "field_identifier", "pointer_declarator", "array_declarator", "init_declarator"}
-        ]
+        return list(node.children_by_field_name("declarator"))
 
     def _identifier(self, node: Node | None) -> Node | None:
         if node is None:
