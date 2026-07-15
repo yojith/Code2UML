@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 from pathlib import Path
-from unittest import TestCase, expectedFailure
+from unittest import TestCase
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -143,8 +143,6 @@ public:
             self.assertIn(("User", "Profile", RelationshipType.COMPOSITION), relationships)
             self.assertIn(("User", "Department", RelationshipType.ASSOCIATION), relationships)
 
-    # Task 6: remove when the Tree-sitter C adapter attaches cross-module struct-owned methods.
-    @expectedFailure
     def test_c_loader_normalizes_structs_and_methods(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             header = Path(tmpdir) / "user.h"
