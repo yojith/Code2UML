@@ -180,6 +180,49 @@ class Owner extends pkg.Base<Item> {
     assert ("Owner", "Base", RelationshipType.COMPOSITION) in {(relationship.source, relationship.target, relationship.relationship_type) for relationship in diagram.relationships}
 
 
+def test_java_parser_only_treats_unshadowed_bare_collection_names_as_fields(tmp_path):
+    source = write_source(
+        tmp_path,
+        "Collections.java",
+        """
+import java.util.List;
+
+class Item {}
+
+class Basket {
+    private List<Item> orders;
+
+    void field(Item item) {
+        orders.add(item);
+    }
+
+    void explicit(List<Item> orders, Item item) {
+        this.orders.add(item);
+    }
+
+    void parameter(List<Item> orders, Item item) {
+        orders.add(item);
+    }
+
+    void local(Item item) {
+        List<Item> orders = null;
+        orders.add(item);
+    }
+}
+""",
+    )
+
+    basket = class_by_name(JavaParser().parse(str(source))[0], "Basket")
+    calls = {method.name: [(call.collection_attribute, call.item_name) for call in method.append_calls] for method in basket.methods}
+
+    assert calls == {
+        "field": [("orders", "item")],
+        "explicit": [("orders", "item")],
+        "parameter": [],
+        "local": [],
+    }
+
+
 def test_java_parser_keeps_valid_declarations_and_reports_malformed_regions(tmp_path):
     source = write_source(
         tmp_path,

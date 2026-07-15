@@ -59,13 +59,20 @@ class JavaParser:
         references: list[NormalizedTypeReference] = []
         body = node.child_by_field_name("body")
         if body is not None:
+            field_names = {
+                node_text(source, declarator.child_by_field_name("name")) or ""
+                for member in body.named_children
+                if member.type == "field_declaration"
+                for declarator in member.named_children
+                if declarator.type == "variable_declarator"
+            }
             for member in body.named_children:
                 if member.type == "field_declaration":
                     member_attributes, member_assignments = self._normalize_fields(member, source)
                     attributes.extend(member_attributes)
                     assignments.extend(member_assignments)
                 elif member.type in {"constructor_declaration", "method_declaration"}:
-                    method, member_assignments = self._normalize_method(member, source)
+                    method, member_assignments = self._normalize_method(member, source, field_names)
                     methods.append(method)
                     assignments.extend(member_assignments)
                     references.extend(NormalizedTypeReference(parameter.type_name, "parameter") for parameter in method.parameters if parameter.type_name)
@@ -102,7 +109,7 @@ class JavaParser:
                 assignments.append(NormalizedMemberAssignment(name, self._raw_type_name(value.child_by_field_name("type"), source), "constructed"))
         return attributes, assignments
 
-    def _normalize_method(self, node: Node, source: bytes) -> tuple[NormalizedMethod, list[NormalizedMemberAssignment]]:
+    def _normalize_method(self, node: Node, source: bytes, field_names: set[str]) -> tuple[NormalizedMethod, list[NormalizedMemberAssignment]]:
         is_constructor = node.type == "constructor_declaration"
         modifiers = self._modifiers(node)
         parameters = self._parameters(node.child_by_field_name("parameters"), source)
@@ -112,6 +119,14 @@ class JavaParser:
         assignments: list[NormalizedMemberAssignment] = []
         body = node.child_by_field_name("body")
         if body is not None:
+            shadowed_names = set(parameter_types)
+            shadowed_names.update(
+                node_text(source, declarator.child_by_field_name("name")) or ""
+                for descendant in self._method_nodes(body)
+                if descendant.type == "local_variable_declaration"
+                for declarator in descendant.named_children
+                if declarator.type == "variable_declarator"
+            )
             for descendant in self._method_nodes(body):
                 if descendant.type == "assignment_expression":
                     member = self._member_name(descendant.child_by_field_name("left"), source)
@@ -137,7 +152,7 @@ class JavaParser:
                                 )
                             )
                 elif descendant.type == "method_invocation" and node_text(source, descendant.child_by_field_name("name")) == "add":
-                    collection = self._collection_name(descendant.child_by_field_name("object"), source)
+                    collection = self._collection_name(descendant.child_by_field_name("object"), source, field_names, shadowed_names)
                     arguments = descendant.child_by_field_name("arguments")
                     first_argument = arguments.named_children[0] if arguments is not None and arguments.named_children else None
                     if collection and first_argument is not None and first_argument.type == "identifier":
@@ -178,8 +193,11 @@ class JavaParser:
         object_node = node.child_by_field_name("object")
         return node_text(source, node.child_by_field_name("field")) if object_node is not None and object_node.type == "this" else None
 
-    def _collection_name(self, node: Node | None, source: bytes) -> str | None:
-        return node_text(source, node) if node is not None and node.type == "identifier" else self._member_name(node, source)
+    def _collection_name(self, node: Node | None, source: bytes, field_names: set[str], shadowed_names: set[str]) -> str | None:
+        if node is not None and node.type == "identifier":
+            name = node_text(source, node)
+            return name if name in field_names and name not in shadowed_names else None
+        return self._member_name(node, source)
 
     def _raw_type_name(self, node: Node | None, source: bytes) -> str:
         if node is None:
