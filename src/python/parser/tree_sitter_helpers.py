@@ -18,6 +18,14 @@ def node_text(source: bytes, node: Node | None) -> str | None:
     return source[node.start_byte : node.end_byte].decode("utf-8") if node is not None else None
 
 
+def walk_named(node: Node):
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        stack.extend(reversed(current.named_children))
+
+
 def tree_diagnostics(path: str, root: Node) -> list[SourceDiagnostic]:
     diagnostics: list[SourceDiagnostic] = []
     stack = [root]
