@@ -371,3 +371,41 @@ Foo const& EastOnly::get() { return *static_cast<Foo*>(nullptr); }
     RelationshipAnalyzer().analyze(modules, diagram)
     relationships = {(item.source, item.target, item.relationship_type) for item in diagram.relationships}
     assert {(name, "Foo", RelationshipType.ASSOCIATION) for name in ("PointerOnly", "LeadingOnly", "EastOnly")} <= relationships
+
+
+def test_cpp_top_level_parameter_cv_does_not_change_endpoint_or_overload_identity(tmp_path):
+    header = write_source(
+        tmp_path,
+        "consumer.hpp",
+        """
+class Foo {};
+
+class Consumer {
+public:
+    void take(Foo* const value);
+    void watch(Foo* volatile value);
+};
+""",
+    )
+    implementation = write_source(
+        tmp_path,
+        "consumer.cpp",
+        """
+void Consumer::take(Foo* value) {
+    Foo local;
+}
+""",
+    )
+
+    modules = CppParser().parse(str(header), str(implementation))
+    consumer = class_by_name(modules[0], "Consumer")
+
+    assert [method.name for method in consumer.methods].count("take") == 1
+    take = next(method for method in consumer.methods if method.name == "take")
+    assert [(item.class_name, item.assigned_name) for item in take.local_instantiations] == [("Foo", "local")]
+    assert next(method for method in consumer.methods if method.name == "watch").parameters[0].type_name == "Foo* volatile"
+    assert {item.type_name for item in consumer.type_references if item.context == "parameter"} == {"Foo"}
+
+    diagram = ClassAnalyzer().analyze(modules)
+    RelationshipAnalyzer().analyze(modules, diagram)
+    assert ("Consumer", "Foo", RelationshipType.ASSOCIATION) in {(item.source, item.target, item.relationship_type) for item in diagram.relationships}

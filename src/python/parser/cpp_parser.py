@@ -20,6 +20,7 @@ from parser.tree_sitter_helpers import node_text, parse_tree, tree_diagnostics, 
 
 CPP_LANGUAGE = Language(tree_sitter_cpp.language())
 CLASS_NODES = {"class_specifier", "struct_specifier"}
+CV_QUALIFIERS = {"const", "volatile"}
 
 
 class CppParser:
@@ -248,7 +249,14 @@ class CppParser:
         return f"{' '.join(ordered_type)}{spelling[len(base):]}"
 
     def _method_signature(self, method: NormalizedMethod) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
-        return method.name, tuple((parameter.type_name or "").replace(" ", "") for parameter in method.parameters), self._method_qualifiers.get(id(method), ())
+        return method.name, tuple(self._parameter_signature(parameter.type_name or "") for parameter in method.parameters), self._method_qualifiers.get(id(method), ())
+
+    def _parameter_signature(self, type_name: str) -> str:
+        value = self._without_trailing_cv(type_name.strip())
+        parts = value.split()
+        if "*" not in value and "&" not in value:
+            parts = [part for part in parts if part not in CV_QUALIFIERS]
+        return "".join(parts)
 
     def _field_declarators(self, node: Node) -> list[Node]:
         return [
@@ -294,10 +302,23 @@ class CppParser:
         return ClassKind.ABSTRACT_CLASS
 
     def _relationship_name(self, type_name: str) -> str:
-        value = type_name.strip().rstrip("*& ")
-        value = " ".join(part for part in value.split() if part not in {"const", "volatile"})
+        value = type_name.strip()
+        while True:
+            previous = value
+            value = self._without_trailing_cv(value.rstrip("*& "))
+            value = " ".join(part for part in value.split() if part not in CV_QUALIFIERS)
+            if value == previous:
+                break
         value = value.partition("<")[0].strip()
         return value.rsplit("::", 1)[-1]
+
+    def _without_trailing_cv(self, type_name: str) -> str:
+        value = type_name
+        while True:
+            qualifier = next((item for item in CV_QUALIFIERS if value.endswith(item) and (len(value) == len(item) or not (value[-len(item) - 1].isalnum() or value[-len(item) - 1] == "_"))), None)
+            if qualifier is None:
+                return value
+            value = value[: -len(qualifier)].rstrip()
 
     def _visibility(self, spelling: str) -> str:
         return "-" if spelling.startswith("private") else "#" if spelling.startswith("protected") else "+"
