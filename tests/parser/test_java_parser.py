@@ -63,6 +63,7 @@ public class OrderService extends BaseService implements Repository<Order> {
 
     public void store(List<Order> batch, Order order) {
         this.orders.add(order);
+        orders.add(order);
     }
 
     protected void validate() {}
@@ -74,6 +75,8 @@ public class OrderService extends BaseService implements Repository<Order> {
 
     module = JavaParser().parse(str(source))[0]
 
+    assert module.diagnostics == []
+    assert [normalized_class.name for normalized_class in module.classes] == ["Repository", "SpecialRepository", "BaseService", "Order", "Cache", "OrderService", "State"]
     repository = class_by_name(module, "Repository")
     special_repository = class_by_name(module, "SpecialRepository")
     base_service = class_by_name(module, "BaseService")
@@ -95,14 +98,13 @@ public class OrderService extends BaseService implements Repository<Order> {
     assert [(parameter.name, parameter.type_name) for parameter in constructor.parameters] == [("repository", "Repository<Order>")]
     assert assignment(service, "repository", "supplied").type_name == "Repository"
     assert assignment(service, "cache", "constructed").type_name == "Cache"
-    assert assignment(service, "orders", "constructed").type_name == "ArrayList<Order>"
+    assert assignment(service, "orders", "constructed").type_name == "ArrayList"
     find = next(method for method in service.methods if method.name == "find")
     assert find.return_type == "Order"
     assert find.local_instantiations[0].class_name == "Cache"
     store = next(method for method in service.methods if method.name == "store")
     assert [(parameter.name, parameter.type_name) for parameter in store.parameters] == [("batch", "List<Order>"), ("order", "Order")]
-    assert store.append_calls[0].collection_attribute == "orders"
-    assert store.append_calls[0].item_name == "order"
+    assert [(call.collection_attribute, call.item_name) for call in store.append_calls] == [("orders", "order"), ("orders", "order")]
 
     diagram = ClassAnalyzer().analyze([module])
     RelationshipAnalyzer().analyze([module], diagram)
@@ -111,6 +113,71 @@ public class OrderService extends BaseService implements Repository<Order> {
     assert ("OrderService", "Repository", RelationshipType.AGGREGATION) in relationships
     assert ("OrderService", "Cache", RelationshipType.COMPOSITION) in relationships
     assert ("OrderService", "Order", RelationshipType.AGGREGATION) in relationships
+
+
+def test_java_parser_normalizes_qualified_generics_and_concrete_interface_methods(tmp_path):
+    source = write_source(
+        tmp_path,
+        "Qualified.java",
+        """
+package pkg;
+
+@Deprecated
+class Base<T> {}
+class Item {}
+
+interface Port {
+    Item load();
+    default Item cached() { return null; }
+    static Item empty() { return null; }
+    private void audit() {}
+}
+
+class Owner extends pkg.Base<Item> {
+    private Base<Item> base;
+    private Base<Item> eager = new pkg.Base<Item>();
+    private java.util.List<Item> items;
+
+    Owner() {
+        this.base = new pkg.Base<Item>();
+    }
+
+    void store(Item item, Base<Item> replacement) {
+        items.add(item);
+        Base<Item> local = new pkg.Base<Item>();
+    }
+}
+""",
+    )
+
+    module = JavaParser().parse(str(source))[0]
+
+    assert module.diagnostics == []
+    assert [normalized_class.name for normalized_class in module.classes] == ["Base", "Item", "Port", "Owner"]
+    port = class_by_name(module, "Port")
+    methods = {method.name: method for method in port.methods}
+    assert methods["load"].is_abstract
+    assert not methods["cached"].is_abstract
+    assert not methods["empty"].is_abstract
+    assert methods["empty"].is_static
+    assert not methods["audit"].is_abstract
+    assert methods["audit"].visibility == "-"
+
+    owner = class_by_name(module, "Owner")
+    assert owner.bases == ["Base"]
+    assert {attribute.name: attribute.type_name for attribute in owner.attributes} == {"base": "Base<Item>", "eager": "Base<Item>", "items": "java.util.List<Item>"}
+    assert assignment(owner, "base", "constructed").type_name == "Base"
+    assert assignment(owner, "eager", "constructed").type_name == "Base"
+    constructor = next(method for method in owner.methods if method.is_constructor)
+    assert constructor.local_instantiations[0].class_name == "Base"
+    store = next(method for method in owner.methods if method.name == "store")
+    assert [(parameter.name, parameter.type_name) for parameter in store.parameters] == [("item", "Item"), ("replacement", "Base<Item>")]
+    assert store.local_instantiations[0].class_name == "Base"
+    assert [(call.collection_attribute, call.item_name) for call in store.append_calls] == [("items", "item")]
+
+    diagram = ClassAnalyzer().analyze([module])
+    RelationshipAnalyzer().analyze([module], diagram)
+    assert ("Owner", "Base", RelationshipType.COMPOSITION) in {(relationship.source, relationship.target, relationship.relationship_type) for relationship in diagram.relationships}
 
 
 def test_java_parser_keeps_valid_declarations_and_reports_malformed_regions(tmp_path):

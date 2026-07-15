@@ -65,7 +65,7 @@ class JavaParser:
                     attributes.extend(member_attributes)
                     assignments.extend(member_assignments)
                 elif member.type in {"constructor_declaration", "method_declaration"}:
-                    method, member_assignments = self._normalize_method(member, source, kind is ClassKind.INTERFACE)
+                    method, member_assignments = self._normalize_method(member, source)
                     methods.append(method)
                     assignments.extend(member_assignments)
                     references.extend(NormalizedTypeReference(parameter.type_name, "parameter") for parameter in method.parameters if parameter.type_name)
@@ -99,10 +99,10 @@ class JavaParser:
             attributes.append(NormalizedAttribute(name, type_name, self._visibility(modifiers), "static" in modifiers))
             value = declarator.child_by_field_name("value")
             if value is not None and value.type == "object_creation_expression":
-                assignments.append(NormalizedMemberAssignment(name, node_text(source, value.child_by_field_name("type")) or "", "constructed"))
+                assignments.append(NormalizedMemberAssignment(name, self._raw_type_name(value.child_by_field_name("type"), source), "constructed"))
         return attributes, assignments
 
-    def _normalize_method(self, node: Node, source: bytes, in_interface: bool) -> tuple[NormalizedMethod, list[NormalizedMemberAssignment]]:
+    def _normalize_method(self, node: Node, source: bytes) -> tuple[NormalizedMethod, list[NormalizedMemberAssignment]]:
         is_constructor = node.type == "constructor_declaration"
         modifiers = self._modifiers(node)
         parameters = self._parameters(node.child_by_field_name("parameters"), source)
@@ -118,7 +118,7 @@ class JavaParser:
                     value = descendant.child_by_field_name("right")
                     if member and value is not None:
                         if value.type == "object_creation_expression":
-                            type_name = node_text(source, value.child_by_field_name("type")) or ""
+                            type_name = self._raw_type_name(value.child_by_field_name("type"), source)
                             instantiations.append(NormalizedLocalInstantiation(type_name, assigned_attribute=member))
                             if is_constructor:
                                 assignments.append(NormalizedMemberAssignment(member, type_name, "constructed"))
@@ -132,12 +132,12 @@ class JavaParser:
                         if value is not None and value.type == "object_creation_expression":
                             instantiations.append(
                                 NormalizedLocalInstantiation(
-                                    node_text(source, value.child_by_field_name("type")) or "",
+                                    self._raw_type_name(value.child_by_field_name("type"), source),
                                     assigned_name=node_text(source, declarator.child_by_field_name("name")),
                                 )
                             )
                 elif descendant.type == "method_invocation" and node_text(source, descendant.child_by_field_name("name")) == "add":
-                    collection = self._member_name(descendant.child_by_field_name("object"), source)
+                    collection = self._collection_name(descendant.child_by_field_name("object"), source)
                     arguments = descendant.child_by_field_name("arguments")
                     first_argument = arguments.named_children[0] if arguments is not None and arguments.named_children else None
                     if collection and first_argument is not None and first_argument.type == "identifier":
@@ -146,7 +146,7 @@ class JavaParser:
             name=node_text(source, node.child_by_field_name("name")) or "",
             visibility=self._visibility(modifiers),
             is_constructor=is_constructor,
-            is_abstract=in_interface or "abstract" in modifiers or body is None,
+            is_abstract="abstract" in modifiers or body is None,
             is_static="static" in modifiers,
             parameters=parameters,
             return_type=None if is_constructor else node_text(source, node.child_by_field_name("type")),
@@ -178,9 +178,16 @@ class JavaParser:
         object_node = node.child_by_field_name("object")
         return node_text(source, node.child_by_field_name("field")) if object_node is not None and object_node.type == "this" else None
 
-    def _raw_type_name(self, node: Node, source: bytes) -> str:
-        while node.type in {"generic_type", "scoped_type_identifier"} and node.named_children:
-            node = node.named_children[0]
+    def _collection_name(self, node: Node | None, source: bytes) -> str | None:
+        return node_text(source, node) if node is not None and node.type == "identifier" else self._member_name(node, source)
+
+    def _raw_type_name(self, node: Node | None, source: bytes) -> str:
+        if node is None:
+            return ""
+        if node.type == "generic_type" and node.named_children:
+            return self._raw_type_name(node.named_children[0], source)
+        if node.type == "scoped_type_identifier" and node.named_children:
+            return self._raw_type_name(node.named_children[-1], source)
         return node_text(source, node) or ""
 
     def _relationship_name(self, type_name: str) -> str:
