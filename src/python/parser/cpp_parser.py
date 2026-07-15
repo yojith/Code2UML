@@ -222,9 +222,9 @@ class CppParser:
         return result
 
     def _method_references(self, method: NormalizedMethod) -> list[NormalizedTypeReference]:
-        references = [NormalizedTypeReference(item.type_name, "parameter") for item in method.parameters if item.type_name]
+        references = [NormalizedTypeReference(self._relationship_name(item.type_name), "parameter") for item in method.parameters if item.type_name]
         if method.return_type:
-            references.append(NormalizedTypeReference(method.return_type, "return"))
+            references.append(NormalizedTypeReference(self._relationship_name(method.return_type), "return"))
         references.extend(NormalizedTypeReference(item.class_name, "local") for item in method.local_instantiations)
         return references
 
@@ -243,8 +243,9 @@ class CppParser:
         outer = container.child_by_field_name("declarator") or declarator
         name_node = declarator.child_by_field_name("declarator")
         spelling = self._type_spelling(type_node, outer, name_node or declarator, source)
-        qualifiers = [node_text(source, child) or "" for child in container.named_children if child.type == "type_qualifier" and child.end_byte <= type_node.start_byte]
-        return " ".join([*qualifiers, spelling])
+        base = node_text(source, type_node) or ""
+        ordered_type = [node_text(source, child) or "" for child in container.named_children if child == type_node or child.type == "type_qualifier"]
+        return f"{' '.join(ordered_type)}{spelling[len(base):]}"
 
     def _method_signature(self, method: NormalizedMethod) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
         return method.name, tuple((parameter.type_name or "").replace(" ", "") for parameter in method.parameters), self._method_qualifiers.get(id(method), ())
@@ -293,7 +294,8 @@ class CppParser:
         return ClassKind.ABSTRACT_CLASS
 
     def _relationship_name(self, type_name: str) -> str:
-        value = type_name.replace("const ", "").strip().rstrip("*& ")
+        value = type_name.strip().rstrip("*& ")
+        value = " ".join(part for part in value.split() if part not in {"const", "volatile"})
         value = value.partition("<")[0].strip()
         return value.rsplit("::", 1)[-1]
 

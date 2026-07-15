@@ -321,3 +321,53 @@ private:
     owner = class_by_name(CppParser().parse(str(source))[0], "Owner")
 
     assert {(item.member_name, item.type_name) for item in owner.member_assignments if item.ownership == "constructed"} == {("value_", "Foo")}
+
+
+def test_cpp_signature_spelling_and_relationship_endpoints_are_distinct(tmp_path):
+    header = write_source(
+        tmp_path,
+        "signatures.hpp",
+        """
+class Foo {};
+
+class PointerOnly {
+public:
+    void take(Foo* value);
+};
+
+class LeadingOnly {
+public:
+    const Foo& get();
+};
+
+class EastOnly {
+public:
+    Foo const& get();
+};
+""",
+    )
+    implementation = write_source(
+        tmp_path,
+        "signatures.cpp",
+        """
+void PointerOnly::take(Foo* value) {}
+const Foo& LeadingOnly::get() { return *static_cast<Foo*>(nullptr); }
+Foo const& EastOnly::get() { return *static_cast<Foo*>(nullptr); }
+""",
+    )
+
+    modules = CppParser().parse(str(header), str(implementation))
+    classes = {item.name: item for module in modules for item in module.classes}
+
+    assert classes["PointerOnly"].methods[0].parameters[0].type_name == "Foo*"
+    assert classes["LeadingOnly"].methods[0].return_type == "const Foo&"
+    assert classes["EastOnly"].methods[0].return_type == "Foo const&"
+    for name in ("PointerOnly", "LeadingOnly", "EastOnly"):
+        assert "Foo" in {item.type_name for item in classes[name].type_references}
+        assert classes[name].member_assignments == []
+        assert all(not method.local_instantiations for method in classes[name].methods)
+
+    diagram = ClassAnalyzer().analyze(modules)
+    RelationshipAnalyzer().analyze(modules, diagram)
+    relationships = {(item.source, item.target, item.relationship_type) for item in diagram.relationships}
+    assert {(name, "Foo", RelationshipType.ASSOCIATION) for name in ("PointerOnly", "LeadingOnly", "EastOnly")} <= relationships
