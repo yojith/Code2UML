@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from analyzers.class_analyzer import ClassAnalyzer
 from analyzers.relationship_analyzer import RelationshipAnalyzer
 from model.enums import ProjectLanguage
+from model.uml_diagram import UMLDiagram
 from parser.abstracter import AbstractSyntaxTreeLoader
+from parser.normalized_ast import SourceDiagnostic
 from parser.project_loader import ProjectLoader
 from render.drawio_renderer import DrawioRenderer
 from render.graphviz_renderer import GraphvizRenderer
+
+
+@dataclass(slots=True)
+class AnalysisResult:
+    diagram: UMLDiagram
+    diagnostics: list[SourceDiagnostic]
 
 
 class UMLGenerator:
@@ -26,14 +36,21 @@ class UMLGenerator:
         self.relationship_analyzer = relationship_analyzer or RelationshipAnalyzer()
         self.renderer = renderer or GraphvizRenderer()
 
-    def generate(self, project_type: ProjectLanguage, output: str, *paths: str) -> None:
+    def analyze(self, project_type: ProjectLanguage, *paths: str) -> AnalysisResult:
         filepaths = self.project_loader.collect_source_files(project_type, *paths)
         documents = self.ast_loader.load(project_type, *filepaths)
         diagram = self.class_analyzer.analyze(documents)
         self.relationship_analyzer.analyze(documents, diagram)
-        self.renderer.render(diagram, output)
+        if not diagram.classes:
+            raise RuntimeError("No UML classes could be analyzed from the selected source files.")
+        return AnalysisResult(diagram, [diagnostic for document in documents for diagnostic in document.diagnostics])
+
+    def generate(self, project_type: ProjectLanguage, output: str, *paths: str) -> AnalysisResult:
+        result = self.analyze(project_type, *paths)
+        self.renderer.render(result.diagram, output)
+        return result
 
 
-def generate_uml_from_files(project_type: ProjectLanguage, output: str, *paths: str) -> None:
+def generate_uml_from_files(project_type: ProjectLanguage, output: str, *paths: str) -> AnalysisResult:
     renderer = DrawioRenderer() if output.lower().endswith(".drawio") else GraphvizRenderer()
-    UMLGenerator(renderer=renderer).generate(project_type, output, *paths)
+    return UMLGenerator(renderer=renderer).generate(project_type, output, *paths)
