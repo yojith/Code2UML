@@ -7,6 +7,7 @@ import tree_sitter_cpp
 
 from model.enums import ClassKind
 from parser.normalized_ast import (
+    NormalizedAppendCall,
     NormalizedAttribute,
     NormalizedClass,
     NormalizedLocalInstantiation,
@@ -137,6 +138,7 @@ class CppParser:
         body = container.child_by_field_name("body")
         if body is not None:
             method.local_instantiations.extend(self._local_instantiations(body, source))
+            method.append_calls.extend(self._append_calls(body, parameters, source))
         self._method_qualifiers[id(method)] = tuple(node_text(source, child) or "" for child in declarator.named_children if child.type in {"type_qualifier", "ref_qualifier"})
         return method
 
@@ -165,6 +167,7 @@ class CppParser:
                 existing.parameters = method.parameters
                 existing.return_type = method.return_type
                 existing.local_instantiations = method.local_instantiations
+                existing.append_calls = method.append_calls
                 normalized_class.type_references.extend(NormalizedTypeReference(item.class_name, "local") for item in method.local_instantiations)
             if method.is_constructor:
                 normalized_class.member_assignments.extend(self._initializer_assignments(node, method.parameters, normalized_class.attributes, source))
@@ -205,6 +208,24 @@ class CppParser:
                 name_node = self._identifier(declarator)
                 if name_node is not None:
                     result.append(NormalizedLocalInstantiation(type_name, assigned_name=node_text(source, name_node)))
+        return result
+
+    def _append_calls(self, body: Node, parameters: list[NormalizedParameter], source: bytes) -> list[NormalizedAppendCall]:
+        result: list[NormalizedAppendCall] = []
+        parameter_types = {parameter.name: self._relationship_name(parameter.type_name or "") for parameter in parameters}
+        for node in walk_named(body):
+            if node.type != "call_expression":
+                continue
+            function = node.child_by_field_name("function")
+            arguments = node.child_by_field_name("arguments")
+            if function is None or function.type != "field_expression" or arguments is None:
+                continue
+            collection = function.child_by_field_name("argument")
+            field = function.child_by_field_name("field")
+            items = arguments.named_children
+            if collection is not None and collection.type == "identifier" and node_text(source, field) == "push_back" and len(items) == 1 and items[0].type == "identifier":
+                item_name = node_text(source, items[0]) or ""
+                result.append(NormalizedAppendCall(node_text(source, collection) or "", item_name, parameter_types.get(item_name)))
         return result
 
     def _parameters(self, node: Node | None, source: bytes) -> list[NormalizedParameter]:

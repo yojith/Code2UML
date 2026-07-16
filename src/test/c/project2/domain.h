@@ -1,9 +1,17 @@
-#define MAX_TEAM_MEMBERS 32
+#pragma once
+
+#define PROFILE_LIMIT 64
 
 struct Entity { int id; };
-struct Profile { char bio[64]; };
-struct User { struct Entity base; struct Profile profile; };
-struct Team { struct User *members[MAX_TEAM_MEMBERS]; };
+struct Profile { char *bio; };
+struct Address { char *city; };
+struct User {
+    struct Entity base;
+    struct Profile profile;
+    struct Address *address;
+    int notifications;
+};
 
-void team_add(struct Team *self, struct User *user);
-void team_persist(struct Team *self, struct Entity *repository);
+int user_key(struct User *self);
+void user_move(struct User *self, struct Address *address);
+struct Profile *user_profile(struct User *self);

@@ -409,3 +409,25 @@ void Consumer::take(Foo* value) {
     diagram = ClassAnalyzer().analyze(modules)
     RelationshipAnalyzer().analyze(modules, diagram)
     assert ("Consumer", "Foo", RelationshipType.ASSOCIATION) in {(item.source, item.target, item.relationship_type) for item in diagram.relationships}
+
+
+def test_cpp_parser_normalizes_member_push_back_of_parameter(tmp_path):
+    source = write_source(
+        tmp_path,
+        "team.hpp",
+        """
+#include <vector>
+class User {};
+class Team {
+public:
+    void add(User* user) { members.push_back(user); }
+private:
+    std::vector<User*> members;
+};
+""",
+    )
+
+    team = class_by_name(CppParser().parse(str(source))[0], "Team")
+    add = next(method for method in team.methods if method.name == "add")
+
+    assert [(call.collection_attribute, call.item_name, call.item_type) for call in add.append_calls] == [("members", "user", "User")]

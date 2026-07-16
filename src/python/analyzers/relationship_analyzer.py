@@ -53,11 +53,12 @@ class RelationshipAnalyzer:
                 relationship_type = RelationshipType.COMPOSITION if method.is_constructor and instantiation.assigned_attribute else RelationshipType.ASSOCIATION
                 self._add_relationship(diagram, normalized_class.name, instantiation.class_name, relationship_type)
             for insertion in method.append_calls:
-                if insertion.item_name in parameter_types:
+                item_type = insertion.item_type or parameter_types.get(insertion.item_name)
+                if item_type:
                     self._add_relationship(
                         diagram,
                         normalized_class.name,
-                        parameter_types[insertion.item_name],
+                        item_type,
                         RelationshipType.AGGREGATION,
                     )
 

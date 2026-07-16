@@ -4,6 +4,7 @@ from analyzers.class_analyzer import ClassAnalyzer
 from analyzers.relationship_analyzer import RelationshipAnalyzer
 from model.enums import ClassKind, RelationshipType
 from parser.normalized_ast import (
+    NormalizedAppendCall,
     NormalizedAttribute,
     NormalizedClass,
     NormalizedLocalInstantiation,
@@ -131,3 +132,29 @@ def test_external_relationship_candidates_are_suppressed(candidate):
     RelationshipAnalyzer().analyze(modules, diagram)
 
     assert diagram.relationships == []
+
+
+def test_collection_insertion_uses_canonical_item_type():
+    modules = [
+        NormalizedModule(
+            path="team.hpp",
+            classes=[
+                NormalizedClass(
+                    "Team",
+                    methods=[
+                        NormalizedMethod(
+                            "add",
+                            parameters=[NormalizedParameter("user", "User*")],
+                            append_calls=[NormalizedAppendCall("members", "user", "User")],
+                        )
+                    ],
+                ),
+                NormalizedClass("User"),
+            ],
+        )
+    ]
+    diagram = ClassAnalyzer().analyze(modules)
+
+    RelationshipAnalyzer().analyze(modules, diagram)
+
+    assert relationships(diagram, "Team", "User") == {RelationshipType.AGGREGATION}

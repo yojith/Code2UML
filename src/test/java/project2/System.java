@@ -1,19 +1,28 @@
-interface Repository { void save(Entity entity); }
+import java.util.ArrayList;
+import java.util.List;
 
-abstract class Entity { public abstract String key(); }
-
-class Profile {}
-
-class User extends Entity implements Repository {
-    class Settings {}
-    private Profile profile = new Profile();
-    private Settings settings = new Settings();
-    public String key() { return "user"; }
-    public void save(Entity entity) {}
+abstract class Entity {
+    protected String id;
+    public Entity(String id) { this.id = id; }
+    public abstract String key();
 }
 
-class Team {
-    private java.util.List<User> members;
-    public void add(User user) { members.add(user); }
-    public void persist(Repository repository) { Profile audit = new Profile(); }
+interface Repository {
+    void save(Entity entity);
+    Entity find(String key);
+}
+
+class Profile {
+    public String bio;
+    public Profile(String bio) { this.bio = bio; }
+}
+
+class Address {
+    public String city;
+    public Address(String city) { this.city = city; }
+}
+
+class AuditLog {
+    private List<String> entries = new ArrayList<String>();
+    public void record(String message) { entries.add(message); }
 }

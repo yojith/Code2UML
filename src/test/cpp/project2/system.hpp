@@ -1,29 +1,29 @@
-#include <vector>
+#pragma once
+
+#include <string>
 
 class Entity {
 public:
-    virtual int key() = 0;
+    virtual std::string key() = 0;
 protected:
-    int id;
-};
-class Repository { public: virtual void save(Entity* entity) = 0; };
-struct Profile {};
-
-class User : public Entity, public Repository {
-public:
-    struct Settings {};
-    int key();
-    void save(Entity* entity);
-private:
-    Profile profile;
-    Settings settings;
+    std::string id;
 };
 
-class Team {
+class Repository {
 public:
-    void add(User* user) { members.push_back(user); }
-    void persist(Repository* repository) { Profile audit; }
-private:
-    std::vector<User*> members;
-    User* lead;
+    virtual void save(Entity* entity) = 0;
+    virtual Entity* find(const std::string& key) = 0;
+};
+
+struct Profile {
+    std::string bio;
+};
+
+struct Address {
+    std::string city;
+};
+
+struct AuditLog {
+    int entries;
+    void record(const std::string& message);
 };

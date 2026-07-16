@@ -55,6 +55,7 @@ class NormalizedLocalInstantiation:
 class NormalizedAppendCall:
     collection_attribute: str
     item_name: str | None = None
+    item_type: str | None = None
 
 
 @dataclass(slots=True)
