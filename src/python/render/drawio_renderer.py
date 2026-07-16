@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from xml.sax.saxutils import escape
 import xml.etree.ElementTree as ET
 
 from model.enums import ClassKind, RelationshipType
@@ -88,9 +87,11 @@ class DrawioRenderer:
         title = uml_class.name if uml_class.kind == ClassKind.CLASS else f"<<{uml_class.kind.value}>> {uml_class.name}"
         lines = [title]
         for attribute in uml_class.attributes:
-            lines.append(f"{attribute.visibility} {attribute.name}")
+            type_suffix = f": {attribute.type_name}" if attribute.type_name else ""
+            lines.append(f"{attribute.visibility} {attribute.name}{type_suffix}")
         for method in uml_class.methods:
-            lines.append(f"{method.visibility} {method.name}({', '.join(method.parameters)})")
+            return_suffix = f": {method.return_type}" if method.return_type else ""
+            lines.append(f"{method.visibility} {method.name}({', '.join(method.parameters)}){return_suffix}")
         return "\\n".join(lines)
 
     def _edge_style(self, relationship_type: RelationshipType) -> str:

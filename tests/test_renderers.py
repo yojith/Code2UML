@@ -6,8 +6,10 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from model.enums import ClassKind, RelationshipType
+from model.uml_attribute import UMLAttribute
 from model.uml_class import UMLClass
 from model.uml_diagram import UMLDiagram
+from model.uml_method import UMLMethod
 from model.uml_relationship import UMLRelationship
 from render.drawio_renderer import DrawioRenderer
 from render.graphviz_renderer import GraphvizRenderer
@@ -39,7 +41,7 @@ def test_graphviz_source_maps_every_class_kind_and_relationship_style():
         renderer.render(diagram_with_every_style(), "out.svg")
 
     for kind in ClassKind:
-        expected_title = kind.value if kind == ClassKind.CLASS else f"<<{kind.value}>> {kind.value}"
+        expected_title = kind.value if kind == ClassKind.CLASS else f"&lt;&lt;{kind.value}&gt;&gt; {kind.value}"
         assert expected_title in dot.source
     for expected in (
         "arrowhead=onormal",
@@ -67,3 +69,36 @@ def test_drawio_xml_maps_every_class_kind_and_relationship_style(tmp_path: Path)
         "startArrow=diamond;startFill=0;endArrow=none;",
         "startArrow=diamond;startFill=1;endArrow=none;",
     }
+
+
+def test_graphviz_source_escapes_dynamic_html_label_text():
+    renderer = GraphvizRenderer()
+    dot = renderer.create_dot()
+    uml_class = UMLClass(
+        "Box<T>&",
+        kind=ClassKind.INTERFACE,
+        attributes=[UMLAttribute("items<&>", "List<Order>&")],
+        methods=[UMLMethod("find<&>", ["key: Map<K, V>&"], "Result<T>&")],
+    )
+
+    with patch.object(renderer, "create_dot", return_value=dot), patch.object(renderer, "_ensure_dot_available"), patch.object(dot, "render"):
+        renderer.render(UMLDiagram(classes={uml_class.name: uml_class}), "out.svg")
+
+    assert "&lt;&lt;interface&gt;&gt; Box&lt;T&gt;&amp;" in dot.source
+    assert "items&lt;&amp;&gt;: List&lt;Order&gt;&amp;" in dot.source
+    assert "find&lt;&amp;&gt;(key: Map&lt;K, V&gt;&amp;): Result&lt;T&gt;&amp;" in dot.source
+
+
+def test_drawio_xml_preserves_attribute_and_return_types(tmp_path: Path):
+    output = tmp_path / "diagram.drawio"
+    uml_class = UMLClass(
+        "Repository",
+        attributes=[UMLAttribute("items", "List<Order>")],
+        methods=[UMLMethod("find", ["id: int"], "Order")],
+    )
+
+    DrawioRenderer().render(UMLDiagram(classes={uml_class.name: uml_class}), str(output))
+
+    label = ET.parse(output).getroot().find(".//mxCell[@vertex='1']").get("value")
+    assert "+ items: List<Order>" in label
+    assert "+ find(id: int): Order" in label

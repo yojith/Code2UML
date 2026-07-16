@@ -20,7 +20,7 @@ The final implementation:
 Task 11's fresh verification on 2026-07-16 produced:
 
 - Black check: clean (`src/python`, `tests`)
-- pytest: 76 passed
+- pytest: 79 passed
 - TypeScript compile: passed
 - ESLint: passed
 - VS Code extension tests: 8 passed

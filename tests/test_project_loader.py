@@ -45,6 +45,13 @@ def test_collect_source_files_shares_headers_between_c_and_cpp(tmp_path: Path):
     assert loader.collect_source_files(ProjectLanguage.CPP, str(tmp_path)) == [str(cpp_source), str(header)]
 
 
+def test_collect_source_files_deduplicates_overlapping_inputs(tmp_path: Path):
+    source = tmp_path / "model.py"
+    source.write_text("", encoding="utf-8")
+
+    assert ProjectLoader().collect_source_files(ProjectLanguage.PYTHON, str(tmp_path), str(source)) == [str(source)]
+
+
 @pytest.mark.parametrize("name", ["notes.txt", "missing.py"])
 def test_collect_source_files_rejects_unsupported_and_missing_paths(tmp_path: Path, name: str):
     path = tmp_path / name

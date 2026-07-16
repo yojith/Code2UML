@@ -28,4 +28,4 @@ class ProjectLoader:
                 filepaths.append(str(candidate))
             else:
                 raise FileNotFoundError(f"Path {path} does not exist or is not a supported {project_type.value} source file.")
-        return sorted(filepaths)
+        return sorted(set(filepaths))

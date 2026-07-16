@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from html import escape
 import shutil
 from pathlib import Path
 
@@ -51,17 +52,18 @@ class GraphvizRenderer:
         title = uml_class.name
         if uml_class.kind != ClassKind.CLASS:
             title = f"<<{uml_class.kind.value}>> {title}"
+        title = escape(title)
 
         attribute_lines = ""
         for attribute in uml_class.attributes:
             type_suffix = f": {attribute.type_name}" if attribute.type_name else ""
-            attribute_lines += f'{attribute.visibility} {attribute.name}{type_suffix}<BR ALIGN="LEFT"/>'
+            attribute_lines += f'{escape(f"{attribute.visibility} {attribute.name}{type_suffix}")}<BR ALIGN="LEFT"/>'
 
         method_lines = ""
         for method in uml_class.methods:
             parameters = ", ".join(method.parameters)
             return_suffix = f": {method.return_type}" if method.return_type else ""
-            method_lines += f'{method.visibility} {method.name}({parameters}){return_suffix}<BR ALIGN="LEFT"/>'
+            method_lines += f'{escape(f"{method.visibility} {method.name}({parameters}){return_suffix}")}<BR ALIGN="LEFT"/>'
 
         return f"""<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
         <TR><TD>{title}</TD></TR>
