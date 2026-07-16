@@ -214,13 +214,6 @@ class CppParser:
     def _append_calls(self, body: Node, parameters: list[NormalizedParameter], source: bytes) -> list[NormalizedAppendCall]:
         result: list[NormalizedAppendCall] = []
         parameter_types = {parameter.name: self._relationship_name(parameter.type_name or "") for parameter in parameters}
-        local_names = {
-            node_text(source, name_node) or ""
-            for declaration in walk_named(body)
-            if declaration.type == "declaration"
-            for declarator in self._field_declarators(declaration)
-            if (name_node := self._identifier(declarator)) is not None
-        }
         for node in walk_named(body):
             if node.type != "call_expression":
                 continue
@@ -234,7 +227,7 @@ class CppParser:
             if (
                 collection is not None
                 and collection.type == "identifier"
-                and node_text(source, collection) not in local_names
+                and not self._is_shadowed_at_call(node, node_text(source, collection) or "", set(parameter_types), source)
                 and node_text(source, field) == "push_back"
                 and len(items) == 1
                 and items[0].type == "identifier"
@@ -242,6 +235,26 @@ class CppParser:
                 item_name = node_text(source, items[0]) or ""
                 result.append(NormalizedAppendCall(node_text(source, collection) or "", item_name, parameter_types.get(item_name)))
         return result
+
+    def _is_shadowed_at_call(self, call: Node, name: str, parameter_names: set[str], source: bytes) -> bool:
+        if name in parameter_names:
+            return True
+        branch = call
+        scope = call.parent
+        while scope is not None:
+            while scope is not None and scope.type != "compound_statement":
+                branch = scope
+                scope = scope.parent
+            if scope is None:
+                return False
+            for sibling in scope.named_children:
+                if sibling.start_byte >= branch.start_byte:
+                    break
+                if sibling.type == "declaration" and any(node_text(source, self._identifier(declarator)) == name for declarator in self._field_declarators(sibling)):
+                    return True
+            branch = scope
+            scope = scope.parent
+        return False
 
     def _filter_append_calls(self, normalized_class: NormalizedClass) -> None:
         instance_attributes = {attribute.name for attribute in normalized_class.attributes if not attribute.is_static}

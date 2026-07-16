@@ -461,3 +461,75 @@ private:
     team = class_by_name(CppParser().parse(str(source))[0], "Team")
 
     assert all(not method.append_calls for method in team.methods)
+
+
+def test_cpp_parser_ignores_collection_parameter_shadowing_field(tmp_path):
+    source = write_source(
+        tmp_path,
+        "parameter_shadow.hpp",
+        """
+#include <vector>
+class User {};
+class Team {
+public:
+    void add(std::vector<User*>& members, User* user) { members.push_back(user); }
+private:
+    std::vector<User*> members;
+};
+""",
+    )
+
+    add = next(method for method in class_by_name(CppParser().parse(str(source))[0], "Team").methods if method.name == "add")
+
+    assert add.append_calls == []
+
+
+def test_cpp_parser_keeps_member_call_before_later_local_shadow(tmp_path):
+    source = write_source(
+        tmp_path,
+        "later_shadow.hpp",
+        """
+#include <vector>
+class User {};
+class Team {
+public:
+    void add(User* user) {
+        members.push_back(user);
+        std::vector<User*> members;
+    }
+private:
+    std::vector<User*> members;
+};
+""",
+    )
+
+    add = next(method for method in class_by_name(CppParser().parse(str(source))[0], "Team").methods if method.name == "add")
+
+    assert [(call.collection_attribute, call.item_name, call.item_type) for call in add.append_calls] == [("members", "user", "User")]
+
+
+def test_cpp_parser_does_not_leak_shadow_from_sibling_scope(tmp_path):
+    source = write_source(
+        tmp_path,
+        "sibling_shadow.hpp",
+        """
+#include <vector>
+class User {};
+class Team {
+public:
+    void add(User* user, bool enabled) {
+        if (enabled) {
+            std::vector<User*> members;
+            members.push_back(user);
+        }
+        members.push_back(user);
+    }
+private:
+    std::vector<User*> members;
+};
+""",
+    )
+
+    add = next(method for method in class_by_name(CppParser().parse(str(source))[0], "Team").methods if method.name == "add")
+
+    assert [(call.collection_attribute, call.item_name, call.item_type) for call in add.append_calls] == [("members", "user", "User")]
