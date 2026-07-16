@@ -431,3 +431,33 @@ private:
     add = next(method for method in team.methods if method.name == "add")
 
     assert [(call.collection_attribute, call.item_name, call.item_type) for call in add.append_calls] == [("members", "user", "User")]
+
+
+def test_cpp_parser_ignores_local_shadowed_and_static_push_back_targets(tmp_path):
+    source = write_source(
+        tmp_path,
+        "local_team.hpp",
+        """
+#include <vector>
+class User {};
+class Team {
+public:
+    void add_local(User* user) {
+        std::vector<User*> temporary;
+        temporary.push_back(user);
+    }
+    void add_shadowed(User* user) {
+        std::vector<User*> members;
+        members.push_back(user);
+    }
+    void add_static(User* user) { shared.push_back(user); }
+private:
+    std::vector<User*> members;
+    static std::vector<User*> shared;
+};
+""",
+    )
+
+    team = class_by_name(CppParser().parse(str(source))[0], "Team")
+
+    assert all(not method.append_calls for method in team.methods)

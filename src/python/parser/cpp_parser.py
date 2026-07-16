@@ -39,6 +39,7 @@ class CppParser:
             self._attach_definitions(root, source, by_name)
         declared = set(by_name)
         for item in by_name.values():
+            self._filter_append_calls(item)
             for method in item.methods:
                 method.local_instantiations[:] = [local for local in method.local_instantiations if local.class_name in declared]
             item.kind = self._class_kind(item, item.kind)
@@ -213,6 +214,13 @@ class CppParser:
     def _append_calls(self, body: Node, parameters: list[NormalizedParameter], source: bytes) -> list[NormalizedAppendCall]:
         result: list[NormalizedAppendCall] = []
         parameter_types = {parameter.name: self._relationship_name(parameter.type_name or "") for parameter in parameters}
+        local_names = {
+            node_text(source, name_node) or ""
+            for declaration in walk_named(body)
+            if declaration.type == "declaration"
+            for declarator in self._field_declarators(declaration)
+            if (name_node := self._identifier(declarator)) is not None
+        }
         for node in walk_named(body):
             if node.type != "call_expression":
                 continue
@@ -223,10 +231,22 @@ class CppParser:
             collection = function.child_by_field_name("argument")
             field = function.child_by_field_name("field")
             items = arguments.named_children
-            if collection is not None and collection.type == "identifier" and node_text(source, field) == "push_back" and len(items) == 1 and items[0].type == "identifier":
+            if (
+                collection is not None
+                and collection.type == "identifier"
+                and node_text(source, collection) not in local_names
+                and node_text(source, field) == "push_back"
+                and len(items) == 1
+                and items[0].type == "identifier"
+            ):
                 item_name = node_text(source, items[0]) or ""
                 result.append(NormalizedAppendCall(node_text(source, collection) or "", item_name, parameter_types.get(item_name)))
         return result
+
+    def _filter_append_calls(self, normalized_class: NormalizedClass) -> None:
+        instance_attributes = {attribute.name for attribute in normalized_class.attributes if not attribute.is_static}
+        for method in normalized_class.methods:
+            method.append_calls[:] = [call for call in method.append_calls if call.collection_attribute in instance_attributes]
 
     def _parameters(self, node: Node | None, source: bytes) -> list[NormalizedParameter]:
         if node is None:
