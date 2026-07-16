@@ -1,16 +1,57 @@
 import * as vscode from "vscode";
-import { uploadFiles, uploadFolders, saveFile } from "./filePicker";
+import * as path from "path";
+import { uploadFiles, saveFile } from "./filePicker";
+import { LANGUAGES, LanguageId } from "./languages";
 import { setupVenv, runScript } from "./pythonRunner";
+
+export function resolveSelectedPaths(
+  language: LanguageId,
+  clicked?: vscode.Uri,
+  selected?: vscode.Uri[],
+): { paths: string[]; skipped: string[] } {
+  const compatible = new Set(
+    LANGUAGES.find(({ id }) => id === language)!.extensions.map(
+      (extension) => `.${extension}`,
+    ),
+  );
+  const paths: string[] = [];
+  const skipped: string[] = [];
+
+  for (const uri of [...(selected ?? []), ...(clicked ? [clicked] : [])]) {
+    if (paths.includes(uri.fsPath) || skipped.includes(uri.fsPath)) {
+      continue;
+    }
+    const extension = path.extname(uri.fsPath).toLowerCase();
+    (extension === "" || compatible.has(extension) ? paths : skipped).push(
+      uri.fsPath,
+    );
+  }
+
+  return { paths, skipped };
+}
+
+function resolveGeneratedOutputPath(outputPath: string): string {
+  if (path.extname(outputPath)) {
+    return outputPath;
+  }
+  return `${outputPath}.svg`;
+}
 
 export async function generateUML(
   context: vscode.ExtensionContext,
-  useFolders: boolean,
+  language: LanguageId,
+  clicked?: vscode.Uri,
+  selected?: vscode.Uri[],
 ) {
   try {
     const venvPython = await setupVenv(context.extensionUri);
-    vscode.window.showInformationMessage("Launching UML generator...");
-
-    const paths = useFolders ? await uploadFolders() : await uploadFiles();
+    const resolved = resolveSelectedPaths(language, clicked, selected);
+    if (resolved.skipped.length) {
+      vscode.window.showWarningMessage(
+        `Skipped incompatible resources: ${resolved.skipped.join(", ")}`,
+      );
+    }
+    const paths = clicked || selected ? resolved.paths : await uploadFiles(language);
     if (!paths || paths.length === 0) {
       vscode.window.showWarningMessage("No files or folders were selected.");
       return;
@@ -22,7 +63,9 @@ export async function generateUML(
       return;
     }
 
-    const args = ["-o", outputPath, "-p", ...paths];
+    vscode.window.showInformationMessage("Launching UML generator...");
+
+    const args = ["-t", language, "-o", outputPath, "-p", ...paths];
     const pythonDir = vscode.Uri.joinPath(
       context.extensionUri,
       "src",
@@ -34,6 +77,10 @@ export async function generateUML(
       console.log(output);
       vscode.window.showInformationMessage(
         "UML diagram generated successfully!",
+      );
+      await vscode.commands.executeCommand(
+        "vscode.open",
+        vscode.Uri.file(resolveGeneratedOutputPath(outputPath)),
       );
     } catch (error) {
       vscode.window.showErrorMessage(
