@@ -1,9 +1,11 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { uploadFiles, saveFile } from "./filePicker";
 import { LANGUAGES, LanguageId } from "./languages";
 import { setupVenv, runScript } from "./pythonRunner";
+import { cleanupSession, savePreview, showPreview } from "./previewPanel";
 
 export function resolveSelectedPaths(
   language: LanguageId,
@@ -36,21 +38,14 @@ export function resolveSelectedPaths(
   return { paths, skipped };
 }
 
-function resolveGeneratedOutputPath(outputPath: string): string {
-  if (path.extname(outputPath)) {
-    return outputPath;
-  }
-  return `${outputPath}.svg`;
-}
-
 export async function generateUML(
   context: vscode.ExtensionContext,
   language: LanguageId,
   clicked?: vscode.Uri,
   selected?: vscode.Uri[],
 ) {
+  let tempDir: string | undefined;
   try {
-    const venvPython = await setupVenv(context.extensionUri);
     const resolved = resolveSelectedPaths(language, clicked, selected);
     if (resolved.skipped.length) {
       vscode.window.showWarningMessage(
@@ -63,31 +58,39 @@ export async function generateUML(
       return;
     }
 
-    const outputPath = await saveFile();
-    if (!outputPath) {
-      vscode.window.showWarningMessage("No output file was selected.");
-      return;
-    }
-
     vscode.window.showInformationMessage("Launching UML generator...");
-
-    const args = ["-t", language, "-o", outputPath, "-p", ...paths];
     const pythonDir = vscode.Uri.joinPath(
       context.extensionUri,
       "src",
       "python",
     );
+    const venvPython = await setupVenv(
+      context.storageUri ?? context.globalStorageUri,
+      context.extensionUri,
+    );
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml-preview-"));
+    const svgPath = path.join(tempDir, "preview.svg");
+    const baseArgs = ["-t", language, "-p", ...paths];
 
     try {
-      const output = await runScript(venvPython, pythonDir, args);
-      console.log(output);
-      vscode.window.showInformationMessage(
-        "UML diagram generated successfully!",
-      );
-      await vscode.commands.executeCommand(
-        "vscode.open",
-        vscode.Uri.file(resolveGeneratedOutputPath(outputPath)),
-      );
+      const payload = await runScript(venvPython, pythonDir, ["-t", language, "-o", svgPath, "-p", ...paths]);
+      showPreview({
+        tempDir,
+        svgPath,
+        documents: paths,
+        payload,
+        save: async () => {
+          const destination = await saveFile();
+          if (!destination) {
+            return;
+          }
+          await savePreview(svgPath, destination, async () => {
+            await runScript(venvPython, pythonDir, ["-o", destination, ...baseArgs]);
+          });
+          vscode.window.showInformationMessage("UML diagram saved successfully!");
+        },
+      });
+      tempDir = undefined;
     } catch (error) {
       vscode.window.showErrorMessage(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -97,5 +100,9 @@ export async function generateUML(
     vscode.window.showErrorMessage(
       `Error: ${error instanceof Error ? error.message : String(error)}`,
     );
+  } finally {
+    if (tempDir) {
+      cleanupSession(tempDir, path.join(tempDir, "preview.svg"));
+    }
   }
 }
