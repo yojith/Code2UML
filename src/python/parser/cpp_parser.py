@@ -243,6 +243,8 @@ class CppParser:
         scope = call.parent
         while scope is not None:
             while scope is not None and scope.type != "compound_statement":
+                if self._control_declares_before(scope, call, name, source):
+                    return True
                 branch = scope
                 scope = scope.parent
             if scope is None:
@@ -255,6 +257,25 @@ class CppParser:
             branch = scope
             scope = scope.parent
         return False
+
+    def _control_declares_before(self, node: Node, call: Node, name: str, source: bytes) -> bool:
+        declarator = node.child_by_field_name("declarator") if node.type == "for_range_loop" else None
+        if declarator is not None and declarator.end_byte <= call.start_byte and node_text(source, self._identifier(declarator)) == name:
+            return True
+        initializer = node.child_by_field_name("initializer")
+        if initializer is None and node.type == "if_statement":
+            condition = node.child_by_field_name("condition")
+            initializer = condition.child_by_field_name("initializer") if condition is not None else None
+        return bool(
+            initializer is not None
+            and initializer.end_byte <= call.start_byte
+            and any(
+                node_text(source, self._identifier(declarator)) == name
+                for declaration in walk_named(initializer)
+                if declaration.type == "declaration"
+                for declarator in self._field_declarators(declaration)
+            )
+        )
 
     def _filter_append_calls(self, normalized_class: NormalizedClass) -> None:
         instance_attributes = {attribute.name for attribute in normalized_class.attributes if not attribute.is_static}

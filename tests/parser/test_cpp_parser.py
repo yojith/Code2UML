@@ -1,3 +1,5 @@
+import pytest
+
 from analyzers.class_analyzer import ClassAnalyzer
 from analyzers.relationship_analyzer import RelationshipAnalyzer
 from model.enums import ClassKind, ProjectLanguage, RelationshipType
@@ -533,3 +535,33 @@ private:
     add = next(method for method in class_by_name(CppParser().parse(str(source))[0], "Team").methods if method.name == "add")
 
     assert [(call.collection_attribute, call.item_name, call.item_type) for call in add.append_calls] == [("members", "user", "User")]
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "for (std::vector<User*> members; !members.empty(); ) { members.push_back(user); }",
+        "for (auto members : groups) { members.push_back(user); }",
+        "if (std::vector<User*> members; enabled) { members.push_back(user); }",
+    ],
+    ids=["classic-for", "range-for", "if-initializer"],
+)
+def test_cpp_parser_respects_control_initializer_shadowing(tmp_path, statement):
+    source = write_source(
+        tmp_path,
+        "control_shadow.hpp",
+        f"""
+#include <vector>
+class User {{}};
+class Team {{
+public:
+    void add(User* user, bool enabled) {{ {statement} }}
+private:
+    std::vector<User*> members;
+}};
+""",
+    )
+
+    add = next(method for method in class_by_name(CppParser().parse(str(source))[0], "Team").methods if method.name == "add")
+
+    assert add.append_calls == []
