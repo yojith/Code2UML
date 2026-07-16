@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from graphviz import Digraph
@@ -25,6 +26,7 @@ class GraphvizRenderer:
         return Digraph(comment="UML Diagram", graph_attr=GRAPH_ATTRS)
 
     def render(self, diagram: UMLDiagram, output_path: str, file_extension: str = "svg") -> None:
+        self._ensure_dot_available()
         dot = self.create_dot()
 
         for uml_class in diagram.classes.values():
@@ -40,6 +42,10 @@ class GraphvizRenderer:
             output_path = str(output.with_suffix(""))
 
         dot.render(output_path, format=file_extension, cleanup=True)
+
+    def _ensure_dot_available(self) -> None:
+        if shutil.which("dot") is None:
+            raise RuntimeError("Graphviz executable 'dot' was not found on PATH. Install Graphviz and make sure 'dot' is available before rendering.")
 
     def _class_label(self, uml_class: UMLClass) -> str:
         title = uml_class.name
@@ -66,6 +72,7 @@ class GraphvizRenderer:
     def _edge_attrs(self, relationship_type: RelationshipType) -> dict[str, str]:
         return {
             RelationshipType.INHERITANCE: {"arrowhead": "onormal"},
+            RelationshipType.IMPLEMENTATION: {"arrowhead": "onormal", "style": "dashed"},
             RelationshipType.ASSOCIATION: {"arrowhead": "normal"},
             RelationshipType.AGGREGATION: {"arrowtail": "odiamond", "dir": "back"},
             RelationshipType.COMPOSITION: {"arrowtail": "diamond", "dir": "back"},

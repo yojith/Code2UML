@@ -6,7 +6,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 import xml.etree.ElementTree as ET
 
-from model.enums import RelationshipType
+from model.enums import ClassKind, RelationshipType
 from model.uml_class import UMLClass
 from model.uml_diagram import UMLDiagram
 
@@ -85,7 +85,8 @@ class DrawioRenderer:
         return positions
 
     def _label(self, uml_class: UMLClass) -> str:
-        lines = [uml_class.name]
+        title = uml_class.name if uml_class.kind == ClassKind.CLASS else f"<<{uml_class.kind.value}>> {uml_class.name}"
+        lines = [title]
         for attribute in uml_class.attributes:
             lines.append(f"{attribute.visibility} {attribute.name}")
         for method in uml_class.methods:
@@ -95,6 +96,7 @@ class DrawioRenderer:
     def _edge_style(self, relationship_type: RelationshipType) -> str:
         return {
             RelationshipType.INHERITANCE: "endArrow=block;endFill=0;",
+            RelationshipType.IMPLEMENTATION: "endArrow=block;endFill=0;dashed=1;",
             RelationshipType.ASSOCIATION: "endArrow=open;",
             RelationshipType.AGGREGATION: "startArrow=diamond;startFill=0;endArrow=none;",
             RelationshipType.COMPOSITION: "startArrow=diamond;startFill=1;endArrow=none;",
