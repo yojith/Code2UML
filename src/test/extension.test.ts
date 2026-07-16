@@ -121,6 +121,18 @@ suite("Extension Test Suite", () => {
     assert.strictEqual(parseGenerationPayload(json).output, "diagram.svg");
     assert.throws(() => parseGenerationPayload(`noise\n${json}`), /valid JSON/);
     assert.throws(() => parseGenerationPayload('{"output":1}'), /payload/);
+    assert.throws(() => parseGenerationPayload(JSON.stringify({
+      output: "diagram.svg",
+      classes: { Broken: { name: 1, kind: "class", attributes: [], methods: [] } },
+      relationships: [],
+      diagnostics: [],
+    })), /payload/);
+    assert.throws(() => parseGenerationPayload(JSON.stringify({
+      output: "diagram.svg",
+      classes: {},
+      relationships: [{ source: "A", target: "B", relationship_type: "owns" }],
+      diagnostics: [],
+    })), /payload/);
   });
 
   test("setup creates once and reuses the matching project marker", async () => {
@@ -145,7 +157,18 @@ suite("Extension Test Suite", () => {
       const first = await setupVenv(storage, extension, execute);
       const second = await setupVenv(storage, extension, execute);
       assert.strictEqual(first, second);
+      const venvPath = path.join(storage.fsPath, ".venv");
+      assert.strictEqual(
+        first,
+        process.platform === "win32"
+          ? path.join(venvPath, "Scripts", "python.exe")
+          : path.join(venvPath, "bin", "python"),
+      );
       assert.strictEqual(calls.length, 2);
+      assert.deepStrictEqual(calls[0], {
+        executable: process.platform === "win32" ? "python" : "python3",
+        args: ["-m", "venv", venvPath],
+      });
       assert.deepStrictEqual(calls[1], {
         executable: first,
         args: ["-m", "pip", "install", extension.fsPath],
