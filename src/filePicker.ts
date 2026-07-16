@@ -19,21 +19,6 @@ export function uploadFiles(language: LanguageId): Thenable<string[] | undefined
   });
 }
 
-export function uploadFolders(language: LanguageId): Thenable<string[] | undefined> {
-  const files = window.showOpenDialog({
-    title: `Select folders containing ${language} source files`,
-    canSelectFolders: true,
-    canSelectMany: true,
-  });
-  return files.then((uris) => {
-    if (uris) {
-      return uris.map((uri) => uri.fsPath);
-    } else {
-      return undefined;
-    }
-  });
-}
-
 export function saveFile(): Thenable<string | undefined> {
   const file = window.showSaveDialog({
     title: "Save UML Diagram",

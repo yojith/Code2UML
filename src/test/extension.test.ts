@@ -1,4 +1,7 @@
 import * as assert from "assert";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
@@ -58,24 +61,44 @@ suite("Extension Test Suite", () => {
       ),
       LANGUAGES.map(({ commandId }) => commandId),
     );
+    assert.ok(
+      fs.existsSync(
+        path.resolve(
+          __dirname,
+          "../..",
+          manifest.contributes.viewsContainers.activitybar[0].icon,
+        ),
+      ),
+    );
   });
 
   test("resolves compatible multi-selection and reports incompatible files", () => {
-    const project = vscode.Uri.file("/workspace/project");
-    const pythonFile = vscode.Uri.file("/workspace/model.py");
-    const incompatibleFile = vscode.Uri.file("/workspace/model.java");
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml-"));
+    try {
+      const project = vscode.Uri.file(path.join(root, "project.v2"));
+      const pythonFile = vscode.Uri.file(path.join(root, "model.py"));
+      const incompatibleFile = vscode.Uri.file(path.join(root, "model.java"));
+      const extensionlessFile = vscode.Uri.file(path.join(root, "README"));
+      fs.mkdirSync(project.fsPath);
+      for (const uri of [pythonFile, incompatibleFile, extensionlessFile]) {
+        fs.writeFileSync(uri.fsPath, "");
+      }
 
-    assert.deepStrictEqual(
-      resolveSelectedPaths("python", pythonFile, [
-        project,
-        pythonFile,
-        incompatibleFile,
-        project,
-      ]),
-      {
-        paths: [project.fsPath, pythonFile.fsPath],
-        skipped: [incompatibleFile.fsPath],
-      },
-    );
+      assert.deepStrictEqual(
+        resolveSelectedPaths("python", pythonFile, [
+          project,
+          pythonFile,
+          incompatibleFile,
+          project,
+          extensionlessFile,
+        ]),
+        {
+          paths: [project.fsPath, pythonFile.fsPath],
+          skipped: [incompatibleFile.fsPath, extensionlessFile.fsPath],
+        },
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true });
+    }
   });
 });

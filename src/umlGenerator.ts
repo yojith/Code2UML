@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
 import * as path from "path";
 import { uploadFiles, saveFile } from "./filePicker";
 import { LANGUAGES, LanguageId } from "./languages";
@@ -21,10 +22,15 @@ export function resolveSelectedPaths(
     if (paths.includes(uri.fsPath) || skipped.includes(uri.fsPath)) {
       continue;
     }
-    const extension = path.extname(uri.fsPath).toLowerCase();
-    (extension === "" || compatible.has(extension) ? paths : skipped).push(
-      uri.fsPath,
-    );
+    try {
+      const extension = path.extname(uri.fsPath).toLowerCase();
+      (fs.statSync(uri.fsPath).isDirectory() || compatible.has(extension)
+        ? paths
+        : skipped
+      ).push(uri.fsPath);
+    } catch {
+      skipped.push(uri.fsPath);
+    }
   }
 
   return { paths, skipped };
