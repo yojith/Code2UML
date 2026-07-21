@@ -1,40 +1,96 @@
 import * as vscode from "vscode";
-import { uploadFiles, uploadFolders, saveFile } from "./filePicker";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import { uploadFiles, saveFile } from "./filePicker";
+import { LANGUAGES, LanguageId } from "./languages";
 import { setupVenv, runScript } from "./pythonRunner";
+import { cleanupSession, savePreview, showPreview } from "./previewPanel";
+
+export function resolveSelectedPaths(
+  language: LanguageId,
+  clicked?: vscode.Uri,
+  selected?: vscode.Uri[],
+): { paths: string[]; skipped: string[] } {
+  const compatible = new Set(
+    LANGUAGES.find(({ id }) => id === language)!.extensions.map(
+      (extension) => `.${extension}`,
+    ),
+  );
+  const paths: string[] = [];
+  const skipped: string[] = [];
+
+  for (const uri of [...(selected ?? []), ...(clicked ? [clicked] : [])]) {
+    if (paths.includes(uri.fsPath) || skipped.includes(uri.fsPath)) {
+      continue;
+    }
+    try {
+      const extension = path.extname(uri.fsPath).toLowerCase();
+      (fs.statSync(uri.fsPath).isDirectory() || compatible.has(extension)
+        ? paths
+        : skipped
+      ).push(uri.fsPath);
+    } catch {
+      skipped.push(uri.fsPath);
+    }
+  }
+
+  return { paths, skipped };
+}
 
 export async function generateUML(
   context: vscode.ExtensionContext,
-  useFolders: boolean,
+  language: LanguageId,
+  clicked?: vscode.Uri,
+  selected?: vscode.Uri[],
 ) {
+  let tempDir: string | undefined;
   try {
-    const venvPython = await setupVenv(context.extensionUri);
-    vscode.window.showInformationMessage("Launching UML generator...");
-
-    const paths = useFolders ? await uploadFolders() : await uploadFiles();
+    const resolved = resolveSelectedPaths(language, clicked, selected);
+    if (resolved.skipped.length) {
+      vscode.window.showWarningMessage(
+        `Skipped incompatible resources: ${resolved.skipped.join(", ")}`,
+      );
+    }
+    const paths = clicked || selected ? resolved.paths : await uploadFiles(language);
     if (!paths || paths.length === 0) {
       vscode.window.showWarningMessage("No files or folders were selected.");
       return;
     }
 
-    const outputPath = await saveFile();
-    if (!outputPath) {
-      vscode.window.showWarningMessage("No output file was selected.");
-      return;
-    }
-
-    const args = ["-o", outputPath, "-p", ...paths];
+    vscode.window.showInformationMessage("Launching UML generator...");
     const pythonDir = vscode.Uri.joinPath(
       context.extensionUri,
       "src",
       "python",
     );
+    const venvPython = await setupVenv(
+      context.storageUri ?? context.globalStorageUri,
+      context.extensionUri,
+    );
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml-preview-"));
+    const svgPath = path.join(tempDir, "preview.svg");
+    const baseArgs = ["-t", language, "-p", ...paths];
 
     try {
-      const output = await runScript(venvPython, pythonDir, args);
-      console.log(output);
-      vscode.window.showInformationMessage(
-        "UML diagram generated successfully!",
-      );
+      const payload = await runScript(venvPython, pythonDir, ["-t", language, "-o", svgPath, "-p", ...paths]);
+      showPreview({
+        tempDir,
+        svgPath,
+        documents: paths,
+        payload,
+        save: async () => {
+          const destination = await saveFile();
+          if (!destination) {
+            return;
+          }
+          await savePreview(svgPath, destination, async () => {
+            await runScript(venvPython, pythonDir, ["-o", destination, ...baseArgs]);
+          });
+          vscode.window.showInformationMessage("UML diagram saved successfully!");
+        },
+      });
+      tempDir = undefined;
     } catch (error) {
       vscode.window.showErrorMessage(
         `Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -44,5 +100,9 @@ export async function generateUML(
     vscode.window.showErrorMessage(
       `Error: ${error instanceof Error ? error.message : String(error)}`,
     );
+  } finally {
+    if (tempDir) {
+      cleanupSession(tempDir, path.join(tempDir, "preview.svg"));
+    }
   }
 }

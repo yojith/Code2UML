@@ -17,16 +17,70 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "python2uml",
+          "title": "Python2UML",
+          "icon": "media/python2uml.svg"
+        }
+      ]
+    },
+    "views": {
+      "python2uml": [
+        {
+          "id": "python2uml.actions",
+          "name": "Actions"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "python2uml.generateUMLFromFiles",
-        "title": "Generate UML Diagram from Python Files"
+        "command": "python2uml.generatePython",
+        "title": "Generate UML for Python"
       },
       {
-        "command": "python2uml.generateUMLFromFolders",
-        "title": "Generate UML Diagram from Python Folders"
+        "command": "python2uml.generateJava",
+        "title": "Generate UML for Java"
+      },
+      {
+        "command": "python2uml.generateCpp",
+        "title": "Generate UML for C++"
+      },
+      {
+        "command": "python2uml.generateC",
+        "title": "Generate UML for C"
       }
-    ]
+    ],
+    "submenus": [
+      {
+        "id": "python2uml.generate",
+        "label": "Generate UML for..."
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "submenu": "python2uml.generate",
+          "when": "resourceScheme == file",
+          "group": "navigation"
+        }
+      ],
+      "python2uml.generate": [
+        {
+          "command": "python2uml.generatePython"
+        },
+        {
+          "command": "python2uml.generateJava"
+        },
+        {
+          "command": "python2uml.generateCpp"
+        },
+        {
+          "command": "python2uml.generateC"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

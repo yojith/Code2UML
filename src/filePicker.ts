@@ -1,25 +1,14 @@
 import { window } from "vscode";
+import { LANGUAGES, LanguageId } from "./languages";
 
-export function uploadFiles(): Thenable<string[] | undefined> {
+export function uploadFiles(language: LanguageId): Thenable<string[] | undefined> {
+  const metadata = LANGUAGES.find(({ id }) => id === language)!;
   const files = window.showOpenDialog({
-    title: "Upload Python files",
-    canSelectMany: true,
-    filters: { "Python Files": ["py"] },
-  });
-  return files.then((uris) => {
-    if (uris) {
-      return uris.map((uri) => uri.fsPath);
-    } else {
-      return undefined;
-    }
-  });
-}
-
-export function uploadFolders(): Thenable<string[] | undefined> {
-  const files = window.showOpenDialog({
-    title: "Upload Python folders",
+    title: `Select ${metadata.label} source files or folders`,
+    canSelectFiles: true,
     canSelectFolders: true,
     canSelectMany: true,
+    filters: { [`${metadata.label} Files`]: [...metadata.extensions] },
   });
   return files.then((uris) => {
     if (uris) {
@@ -38,6 +27,7 @@ export function saveFile(): Thenable<string | undefined> {
       "PNG files": ["png"],
       "PDF files": ["pdf"],
       "JPG files": ["jpg", "jpeg"],
+      "draw.io files": ["drawio"],
     },
   });
   return file.then((uri) => {

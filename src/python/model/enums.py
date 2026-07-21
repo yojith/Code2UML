@@ -13,7 +13,24 @@ class Visibility(str, Enum):
 
 class RelationshipType(str, Enum):
     INHERITANCE = "inheritance"
+    IMPLEMENTATION = "implementation"
     ASSOCIATION = "association"
     AGGREGATION = "aggregation"
     COMPOSITION = "composition"
 
+
+class ClassKind(str, Enum):
+    CLASS = "class"
+    ABSTRACT_CLASS = "abstract_class"
+    INTERFACE = "interface"
+    ENUM = "enum"
+    STRUCT = "struct"
+    FILE = "file"
+    MODULE = "module"
+
+
+class ProjectLanguage(str, Enum):
+    PYTHON = "python"
+    JAVA = "java"
+    CPP = "cpp"
+    C = "c"

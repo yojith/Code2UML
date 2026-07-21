@@ -10,9 +10,8 @@ def is_private(name: str) -> bool:
 
 
 def annotation_to_str(annotation: ast.AST | None) -> str | None:
-    if isinstance(annotation, ast.Name):
-        return annotation.id
-    if isinstance(annotation, ast.Constant) and annotation.value is not None:
-        return str(annotation.value)
-    return None
-
+    if annotation is None:
+        return None
+    if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+        return annotation.value
+    return ast.unparse(annotation)

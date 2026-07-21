@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from html import escape
+import shutil
 from pathlib import Path
 
 from graphviz import Digraph
 
-from model.enums import RelationshipType
+from model.enums import ClassKind, RelationshipType
 from model.uml_class import UMLClass
 from model.uml_diagram import UMLDiagram
 
@@ -25,6 +27,7 @@ class GraphvizRenderer:
         return Digraph(comment="UML Diagram", graph_attr=GRAPH_ATTRS)
 
     def render(self, diagram: UMLDiagram, output_path: str, file_extension: str = "svg") -> None:
+        self._ensure_dot_available()
         dot = self.create_dot()
 
         for uml_class in diagram.classes.values():
@@ -41,20 +44,29 @@ class GraphvizRenderer:
 
         dot.render(output_path, format=file_extension, cleanup=True)
 
+    def _ensure_dot_available(self) -> None:
+        if shutil.which("dot") is None:
+            raise RuntimeError("Graphviz executable 'dot' was not found on PATH. Install Graphviz and make sure 'dot' is available before rendering.")
+
     def _class_label(self, uml_class: UMLClass) -> str:
+        title = uml_class.name
+        if uml_class.kind != ClassKind.CLASS:
+            title = f"<<{uml_class.kind.value}>> {title}"
+        title = escape(title)
+
         attribute_lines = ""
         for attribute in uml_class.attributes:
             type_suffix = f": {attribute.type_name}" if attribute.type_name else ""
-            attribute_lines += f'{attribute.visibility} {attribute.name}{type_suffix}<BR ALIGN="LEFT"/>'
+            attribute_lines += f'{escape(f"{attribute.visibility} {attribute.name}{type_suffix}")}<BR ALIGN="LEFT"/>'
 
         method_lines = ""
         for method in uml_class.methods:
             parameters = ", ".join(method.parameters)
             return_suffix = f": {method.return_type}" if method.return_type else ""
-            method_lines += f'{method.visibility} {method.name}({parameters}){return_suffix}<BR ALIGN="LEFT"/>'
+            method_lines += f'{escape(f"{method.visibility} {method.name}({parameters}){return_suffix}")}<BR ALIGN="LEFT"/>'
 
         return f"""<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
-        <TR><TD>{uml_class.name}</TD></TR>
+        <TR><TD>{title}</TD></TR>
         <TR><TD ALIGN="LEFT">{attribute_lines}</TD></TR>
         <TR><TD ALIGN="LEFT">{method_lines}</TD></TR>
         </TABLE>>"""
@@ -62,6 +74,7 @@ class GraphvizRenderer:
     def _edge_attrs(self, relationship_type: RelationshipType) -> dict[str, str]:
         return {
             RelationshipType.INHERITANCE: {"arrowhead": "onormal"},
+            RelationshipType.IMPLEMENTATION: {"arrowhead": "onormal", "style": "dashed"},
             RelationshipType.ASSOCIATION: {"arrowhead": "normal"},
             RelationshipType.AGGREGATION: {"arrowtail": "odiamond", "dir": "back"},
             RelationshipType.COMPOSITION: {"arrowtail": "diamond", "dir": "back"},
