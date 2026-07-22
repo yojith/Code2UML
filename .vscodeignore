@@ -5,8 +5,11 @@
 .venv/**
 node_modules/**
 out/**/*.map
+out/tests/**
 tests/**
 docs/**
+**/__pycache__/**
+**/.pytest_cache/**
 src/**/*.ts
 AGENTS.md
 TEMP_README.md
