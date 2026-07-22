@@ -8,8 +8,8 @@ from pathlib import Path
 from tree_sitter import Language, Node
 import tree_sitter_c
 
-from model.enums import ClassKind
-from parser.normalized_ast import (
+from python2uml.model.enums import ClassKind
+from python2uml.parsers.normalized_ast import (
     NormalizedAttribute,
     NormalizedClass,
     NormalizedLocalInstantiation,
@@ -19,7 +19,7 @@ from parser.normalized_ast import (
     NormalizedParameter,
     NormalizedTypeReference,
 )
-from parser.tree_sitter_helpers import node_text, parse_tree, tree_diagnostics, walk_named
+from python2uml.parsers.tree_sitter_helpers import node_text, parse_tree, tree_diagnostics, walk_named
 
 C_LANGUAGE = Language(tree_sitter_c.language())
 PREPROC_CONTAINERS = {"preproc_if", "preproc_ifdef", "preproc_else", "preproc_elif"}

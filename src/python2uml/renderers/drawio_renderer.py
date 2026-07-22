@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from model.enums import ClassKind, RelationshipType
-from model.uml_class import UMLClass
-from model.uml_diagram import UMLDiagram
+from python2uml.model.enums import ClassKind, RelationshipType
+from python2uml.model.uml_class import UMLClass
+from python2uml.model.uml_diagram import UMLDiagram
 
 
 class DrawioRenderer:

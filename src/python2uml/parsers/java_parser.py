@@ -5,8 +5,8 @@ from __future__ import annotations
 from tree_sitter import Language, Node
 import tree_sitter_java
 
-from model.enums import ClassKind
-from parser.normalized_ast import (
+from python2uml.model.enums import ClassKind
+from python2uml.parsers.normalized_ast import (
     NormalizedAppendCall,
     NormalizedAttribute,
     NormalizedClass,
@@ -17,7 +17,7 @@ from parser.normalized_ast import (
     NormalizedParameter,
     NormalizedTypeReference,
 )
-from parser.tree_sitter_helpers import node_text, parse_tree, tree_diagnostics
+from python2uml.parsers.tree_sitter_helpers import node_text, parse_tree, tree_diagnostics
 
 JAVA_LANGUAGE = Language(tree_sitter_java.language())
 TYPE_DECLARATIONS = {"class_declaration", "interface_declaration", "enum_declaration"}

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from model.enums import ClassKind
-from model.uml_attribute import UMLAttribute
-from model.uml_method import UMLMethod
+from python2uml.model.enums import ClassKind
+from python2uml.model.uml_attribute import UMLAttribute
+from python2uml.model.uml_method import UMLMethod
 
 
 @dataclass(slots=True)

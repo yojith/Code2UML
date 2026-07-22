@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from generator import AnalysisResult, UMLGenerator
-from main import main
-from model.enums import ProjectLanguage
+from python2uml.cli import main
+from python2uml.generator import AnalysisResult, UMLGenerator
+from python2uml.model.enums import ProjectLanguage
 
 
 def write_partially_invalid_source(tmp_path: Path) -> Path:
@@ -49,7 +49,7 @@ def test_cli_renders_valid_declarations_and_reports_source_errors(tmp_path, caps
     def render(self, diagram, output_path):
         Path(output_path).write_text("<svg/>", encoding="utf-8")
 
-    monkeypatch.setattr("generator.GraphvizRenderer.render", render)
+    monkeypatch.setattr("python2uml.generator.GraphvizRenderer.render", render)
 
     exit_code = main(["-t", "java", "-o", str(output), "-p", str(source)])
     captured = capsys.readouterr()
@@ -89,7 +89,7 @@ def test_cli_dispatches_all_project_languages(tmp_path, capsys, monkeypatch, lan
     def render(self, diagram, output_path):
         Path(output_path).write_text("<svg/>", encoding="utf-8")
 
-    monkeypatch.setattr("generator.GraphvizRenderer.render", render)
+    monkeypatch.setattr("python2uml.generator.GraphvizRenderer.render", render)
 
     exit_code = main(["-t", language, "-o", str(output), "-p", str(source_path)])
     captured = capsys.readouterr()
@@ -120,7 +120,7 @@ def test_cli_serializes_relationship_enum_as_primitive_value(tmp_path, capsys, m
     source = tmp_path / "model.py"
     source.write_text("class Product:\n    pass\n\nclass Cart:\n    def add(self, product: Product):\n        pass\n", encoding="utf-8")
 
-    monkeypatch.setattr("generator.GraphvizRenderer.render", lambda self, diagram, output_path: None)
+    monkeypatch.setattr("python2uml.generator.GraphvizRenderer.render", lambda self, diagram, output_path: None)
 
     exit_code = main(["-t", "python", "-o", str(tmp_path / "preview.svg"), "-p", str(source)])
     captured = capsys.readouterr()
@@ -150,7 +150,7 @@ def test_cli_reports_render_failure_on_stderr(tmp_path, capsys, monkeypatch):
     def fail_render(self, diagram, output_path):
         raise OSError("render failed")
 
-    monkeypatch.setattr("generator.GraphvizRenderer.render", fail_render)
+    monkeypatch.setattr("python2uml.generator.GraphvizRenderer.render", fail_render)
 
     exit_code = main(["-t", "java", "-o", str(tmp_path / "preview.svg"), "-p", str(source)])
     captured = capsys.readouterr()

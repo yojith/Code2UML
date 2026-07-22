@@ -8,8 +8,8 @@ import json
 import sys
 from typing import Sequence
 
-from generator import generate_uml_from_files
-from model.enums import ProjectLanguage
+from python2uml.generator import generate_uml_from_files
+from python2uml.model.enums import ProjectLanguage
 
 
 def _parse_project_language(value: str) -> ProjectLanguage:

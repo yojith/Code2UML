@@ -7,13 +7,14 @@ import sys
 
 import pytest
 
-from analyzers.class_analyzer import ClassAnalyzer
-from analyzers.relationship_analyzer import RelationshipAnalyzer
-from model.enums import ProjectLanguage
-from parser.abstracter import AbstractSyntaxTreeLoader
-from parser.project_loader import ProjectLoader
+from python2uml.analyzers.class_analyzer import ClassAnalyzer
+from python2uml.analyzers.relationship_analyzer import RelationshipAnalyzer
+from python2uml.model.enums import ProjectLanguage
+from python2uml.parsers.abstracter import AbstractSyntaxTreeLoader
+from python2uml.parsers.project_loader import ProjectLoader
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
+FIXTURES = ROOT / "tests" / "fixtures"
 
 
 def expected_class(name, kind="class", parent=None, attributes=(), methods=()):
@@ -359,7 +360,7 @@ def summarize_diagnostics(modules):
 @pytest.mark.parametrize("language,project,expected", CASES)
 def test_fixture_project(language, project, expected):
     project_language = ProjectLanguage(language)
-    root = ROOT / "src" / "test" / language / project
+    root = FIXTURES / language / project
     files = ProjectLoader().collect_source_files(project_language, str(root))
     modules = AbstractSyntaxTreeLoader().load(project_language, *files)
     diagram = ClassAnalyzer().analyze(modules)
@@ -370,14 +371,18 @@ def test_fixture_project(language, project, expected):
     assert summarize_diagnostics(modules) == expected["diagnostics"]
 
 
-def test_manual_inspector_accepts_language_and_prints_diagnostics():
+def test_module_cli_accepts_language_and_prints_diagnostics(tmp_path):
     result = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "src" / "python" / "analyze_test_projects.py"),
-            "--language",
+            "-m",
+            "python2uml",
+            "--project-type",
             "java",
-            str(ROOT / "src" / "test" / "java" / "project2"),
+            "--paths",
+            str(FIXTURES / "java" / "project2"),
+            "--output",
+            str(tmp_path / "fixture.drawio"),
         ],
         check=True,
         capture_output=True,
@@ -385,7 +390,6 @@ def test_manual_inspector_accepts_language_and_prints_diagnostics():
     )
 
     payload = json.loads(result.stdout)
-    assert payload["files"]
     assert payload["classes"]
     assert payload["relationships"]
     assert payload["diagnostics"] == []

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from model.enums import ProjectLanguage
+from python2uml.model.enums import ProjectLanguage
 
 
 class ProjectLoader:

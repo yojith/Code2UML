@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from model.enums import ClassKind
+from python2uml.model.enums import ClassKind
 
 
 @dataclass(slots=True)

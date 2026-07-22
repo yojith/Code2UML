@@ -170,12 +170,11 @@ export function parseGenerationPayload(stdout: string): GenerationPayload {
 
 export async function runScript(
   pythonExec: string,
-  pythonDir: Uri,
   args: string[],
+  run: ProcessRunner = execute,
 ): Promise<GenerationPayload> {
-  const scriptPath = Uri.joinPath(pythonDir, "main.py").fsPath;
   try {
-    const { stdout } = await execute(pythonExec, [scriptPath, ...args]);
+    const { stdout } = await run(pythonExec, ["-m", "python2uml", ...args]);
     return parseGenerationPayload(String(stdout));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

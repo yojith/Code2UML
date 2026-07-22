@@ -8,9 +8,9 @@ from pathlib import Path
 
 from graphviz import Digraph
 
-from model.enums import ClassKind, RelationshipType
-from model.uml_class import UMLClass
-from model.uml_diagram import UMLDiagram
+from python2uml.model.enums import ClassKind, RelationshipType
+from python2uml.model.uml_class import UMLClass
+from python2uml.model.uml_diagram import UMLDiagram
 
 GRAPH_ATTRS = {
     "splines": "ortho",

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from model.uml_attribute import UMLAttribute
-from model.uml_class import UMLClass
-from model.uml_diagram import UMLDiagram
-from model.uml_method import UMLMethod
-from parser.normalized_ast import NormalizedModule
+from python2uml.model.uml_attribute import UMLAttribute
+from python2uml.model.uml_class import UMLClass
+from python2uml.model.uml_diagram import UMLDiagram
+from python2uml.model.uml_method import UMLMethod
+from python2uml.parsers.normalized_ast import NormalizedModule
 
 
 class ClassAnalyzer:

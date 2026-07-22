@@ -5,14 +5,14 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from model.enums import ClassKind, RelationshipType
-from model.uml_attribute import UMLAttribute
-from model.uml_class import UMLClass
-from model.uml_diagram import UMLDiagram
-from model.uml_method import UMLMethod
-from model.uml_relationship import UMLRelationship
-from render.drawio_renderer import DrawioRenderer
-from render.graphviz_renderer import GraphvizRenderer
+from python2uml.model.enums import ClassKind, RelationshipType
+from python2uml.model.uml_attribute import UMLAttribute
+from python2uml.model.uml_class import UMLClass
+from python2uml.model.uml_diagram import UMLDiagram
+from python2uml.model.uml_method import UMLMethod
+from python2uml.model.uml_relationship import UMLRelationship
+from python2uml.renderers.drawio_renderer import DrawioRenderer
+from python2uml.renderers.graphviz_renderer import GraphvizRenderer
 
 
 def diagram_with_every_style() -> UMLDiagram:
@@ -29,7 +29,7 @@ def diagram_with_every_style() -> UMLDiagram:
 
 
 def test_graphviz_render_fails_when_dot_is_missing():
-    with patch("render.graphviz_renderer.shutil.which", return_value=None), pytest.raises(RuntimeError, match="Install Graphviz"):
+    with patch("python2uml.renderers.graphviz_renderer.shutil.which", return_value=None), pytest.raises(RuntimeError, match="Install Graphviz"):
         GraphvizRenderer().render(UMLDiagram(), "out.svg")
 
 

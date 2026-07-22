@@ -6,15 +6,15 @@ import * as path from "path";
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from "vscode";
-import { LANGUAGES } from "../languages";
-import { resolveSelectedPaths } from "../umlGenerator";
-import { parseGenerationPayload, setupVenv } from "../pythonRunner";
+import { LANGUAGES } from "../../src/languages";
+import { resolveSelectedPaths } from "../../src/umlGenerator";
+import { parseGenerationPayload, runScript, setupVenv } from "../../src/pythonRunner";
 import {
   cleanupSession,
   isSaveMessage,
   previewHtml,
   savePreview,
-} from "../previewPanel";
+} from "../../src/previewPanel";
 // import * as myExtension from '../../extension';
 
 suite("Extension Test Suite", () => {
@@ -53,7 +53,7 @@ suite("Extension Test Suite", () => {
   });
 
   test("contributes one shared Explorer submenu", () => {
-    const manifest = require("../../package.json");
+    const manifest = require("../../../package.json");
 
     assert.deepStrictEqual(manifest.contributes.menus["explorer/context"], [
       {
@@ -72,7 +72,7 @@ suite("Extension Test Suite", () => {
       fs.existsSync(
         path.resolve(
           __dirname,
-          "../..",
+          "../../..",
           manifest.contributes.viewsContainers.activitybar[0].icon,
         ),
       ),
@@ -133,6 +133,16 @@ suite("Extension Test Suite", () => {
       relationships: [{ source: "A", target: "B", relationship_type: "owns" }],
       diagnostics: [],
     })), /payload/);
+  });
+
+  test("invokes the installed Python module", async () => {
+    const calls: Array<{ executable: string; args: string[] }> = [];
+    const run = async (executable: string, args: string[]) => {
+      calls.push({ executable, args });
+      return { stdout: JSON.stringify({ output: "diagram.drawio", classes: {}, relationships: [], diagnostics: [] }), stderr: "" };
+    };
+    await runScript("python", ["-t", "java", "-o", "diagram.drawio", "-p", "Model.java"], run);
+    assert.deepStrictEqual(calls, [{ executable: "python", args: ["-m", "python2uml", "-t", "java", "-o", "diagram.drawio", "-p", "Model.java"] }]);
   });
 
   test("setup creates once and reuses the matching project marker", async () => {

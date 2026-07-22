@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from analyzers.class_analyzer import ClassAnalyzer
-from analyzers.relationship_analyzer import RelationshipAnalyzer
-from model.enums import ProjectLanguage
-from model.uml_diagram import UMLDiagram
-from parser.abstracter import AbstractSyntaxTreeLoader
-from parser.normalized_ast import SourceDiagnostic
-from parser.project_loader import ProjectLoader
-from render.drawio_renderer import DrawioRenderer
-from render.graphviz_renderer import GraphvizRenderer
+from python2uml.analyzers.class_analyzer import ClassAnalyzer
+from python2uml.analyzers.relationship_analyzer import RelationshipAnalyzer
+from python2uml.model.enums import ProjectLanguage
+from python2uml.model.uml_diagram import UMLDiagram
+from python2uml.parsers.abstracter import AbstractSyntaxTreeLoader
+from python2uml.parsers.normalized_ast import SourceDiagnostic
+from python2uml.parsers.project_loader import ProjectLoader
+from python2uml.renderers.drawio_renderer import DrawioRenderer
+from python2uml.renderers.graphviz_renderer import GraphvizRenderer
 
 
 @dataclass(slots=True)

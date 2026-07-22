@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from model.enums import RelationshipType
+from python2uml.model.enums import RelationshipType
 
 
 @dataclass(frozen=True, slots=True)

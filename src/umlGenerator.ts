@@ -59,11 +59,6 @@ export async function generateUML(
     }
 
     vscode.window.showInformationMessage("Launching UML generator...");
-    const pythonDir = vscode.Uri.joinPath(
-      context.extensionUri,
-      "src",
-      "python",
-    );
     const venvPython = await setupVenv(
       context.storageUri ?? context.globalStorageUri,
       context.extensionUri,
@@ -73,7 +68,7 @@ export async function generateUML(
     const baseArgs = ["-t", language, "-p", ...paths];
 
     try {
-      const payload = await runScript(venvPython, pythonDir, ["-t", language, "-o", svgPath, "-p", ...paths]);
+      const payload = await runScript(venvPython, ["-t", language, "-o", svgPath, "-p", ...paths]);
       showPreview({
         tempDir,
         svgPath,
@@ -85,7 +80,7 @@ export async function generateUML(
             return;
           }
           await savePreview(svgPath, destination, async () => {
-            await runScript(venvPython, pythonDir, ["-o", destination, ...baseArgs]);
+            await runScript(venvPython, ["-o", destination, ...baseArgs]);
           });
           vscode.window.showInformationMessage("UML diagram saved successfully!");
         },

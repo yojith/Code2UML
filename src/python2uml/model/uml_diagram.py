@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from model.uml_class import UMLClass
-from model.uml_relationship import UMLRelationship
+from python2uml.model.uml_class import UMLClass
+from python2uml.model.uml_relationship import UMLRelationship
 
 
 @dataclass(slots=True)

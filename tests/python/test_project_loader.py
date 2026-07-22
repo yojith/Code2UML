@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from model.enums import ProjectLanguage
-from parser.project_loader import ProjectLoader
+from python2uml.model.enums import ProjectLanguage
+from python2uml.parsers.project_loader import ProjectLoader
 
 
 def test_collect_source_files_uses_project_type(tmp_path: Path):

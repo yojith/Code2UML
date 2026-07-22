@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from analyzers.class_analyzer import ClassAnalyzer
-from analyzers.relationship_analyzer import RelationshipAnalyzer
-from model.enums import ClassKind, RelationshipType
-from parser.c_parser import CParser
+from python2uml.analyzers.class_analyzer import ClassAnalyzer
+from python2uml.analyzers.relationship_analyzer import RelationshipAnalyzer
+from python2uml.model.enums import ClassKind, RelationshipType
+from python2uml.parsers.c_parser import CParser
 
 
 def write_source(root: Path, name: str, source: str) -> Path:

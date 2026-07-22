@@ -1,4 +1,4 @@
-from parser.normalized_ast import NormalizedClass, NormalizedMemberAssignment, NormalizedModule, SourceDiagnostic
+from python2uml.parsers.normalized_ast import NormalizedClass, NormalizedMemberAssignment, NormalizedModule, SourceDiagnostic
 
 
 def test_normalized_module_carries_diagnostics_and_evidence():

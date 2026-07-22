@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from model.enums import ClassKind, RelationshipType
-from model.uml_diagram import UMLDiagram
-from model.uml_relationship import UMLRelationship
-from parser.normalized_ast import NormalizedClass, NormalizedModule
+from python2uml.model.enums import ClassKind, RelationshipType
+from python2uml.model.uml_diagram import UMLDiagram
+from python2uml.model.uml_relationship import UMLRelationship
+from python2uml.parsers.normalized_ast import NormalizedClass, NormalizedModule
 
 RELATIONSHIP_RANK = {
     RelationshipType.ASSOCIATION: 1,

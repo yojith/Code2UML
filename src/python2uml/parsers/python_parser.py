@@ -5,8 +5,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from model.enums import ClassKind
-from parser.normalized_ast import (
+from python2uml.model.enums import ClassKind
+from python2uml.parsers.normalized_ast import (
     NormalizedAppendCall,
     NormalizedAttribute,
     NormalizedClass,
@@ -18,8 +18,8 @@ from parser.normalized_ast import (
     NormalizedTypeReference,
     SourceDiagnostic,
 )
-from utils.ast_utils import annotation_to_str, is_private
-from utils.type_resolver import normalize_type_name
+from python2uml.parsers.ast_utils import annotation_to_str, is_private
+from python2uml.parsers.type_resolver import normalize_type_name
 
 
 class PythonParser:

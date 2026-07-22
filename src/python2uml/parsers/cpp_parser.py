@@ -5,8 +5,8 @@ from __future__ import annotations
 from tree_sitter import Language, Node
 import tree_sitter_cpp
 
-from model.enums import ClassKind
-from parser.normalized_ast import (
+from python2uml.model.enums import ClassKind
+from python2uml.parsers.normalized_ast import (
     NormalizedAppendCall,
     NormalizedAttribute,
     NormalizedClass,
@@ -17,7 +17,7 @@ from parser.normalized_ast import (
     NormalizedParameter,
     NormalizedTypeReference,
 )
-from parser.tree_sitter_helpers import node_text, parse_tree, tree_diagnostics, walk_named
+from python2uml.parsers.tree_sitter_helpers import node_text, parse_tree, tree_diagnostics, walk_named
 
 CPP_LANGUAGE = Language(tree_sitter_cpp.language())
 CLASS_NODES = {"class_specifier", "struct_specifier"}

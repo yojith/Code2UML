@@ -6,7 +6,7 @@ from pathlib import Path
 
 from tree_sitter import Node, Parser
 
-from parser.normalized_ast import SourceDiagnostic
+from python2uml.parsers.normalized_ast import SourceDiagnostic
 
 
 def parse_tree(path: str, language_capsule: object) -> tuple[bytes, Node]:

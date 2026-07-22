@@ -1,8 +1,8 @@
-from analyzers.class_analyzer import ClassAnalyzer
-from analyzers.relationship_analyzer import RelationshipAnalyzer
-from model.enums import ClassKind, ProjectLanguage, RelationshipType
-from parser.abstracter import AbstractSyntaxTreeLoader
-from parser.java_parser import JavaParser
+from python2uml.analyzers.class_analyzer import ClassAnalyzer
+from python2uml.analyzers.relationship_analyzer import RelationshipAnalyzer
+from python2uml.model.enums import ClassKind, ProjectLanguage, RelationshipType
+from python2uml.parsers.abstracter import AbstractSyntaxTreeLoader
+from python2uml.parsers.java_parser import JavaParser
 
 
 def write_source(tmp_path, name, source):
