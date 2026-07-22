@@ -28,6 +28,10 @@ def diagram_with_every_style() -> UMLDiagram:
     return UMLDiagram(classes=classes, relationships=relationships)
 
 
+def drawio_cells(path: Path) -> dict[str, ET.Element]:
+    return {cell.get("id"): cell for cell in ET.parse(path).getroot().findall(".//mxCell")}
+
+
 def test_graphviz_render_fails_when_dot_is_missing():
     with patch("python2uml.renderers.graphviz_renderer.shutil.which", return_value=None), pytest.raises(RuntimeError, match="Install Graphviz"):
         GraphvizRenderer().render(UMLDiagram(), "out.svg")
@@ -58,17 +62,20 @@ def test_drawio_xml_maps_every_class_kind_and_relationship_style(tmp_path: Path)
 
     DrawioRenderer().render(diagram_with_every_style(), str(output))
 
-    cells = ET.parse(output).getroot().findall(".//mxCell")
-    labels = {cell.get("value") for cell in cells if cell.get("vertex") == "1"}
-    styles = {cell.get("style") for cell in cells if cell.get("edge") == "1"}
-    assert labels == {kind.value if kind == ClassKind.CLASS else f"<<{kind.value}>> {kind.value}" for kind in ClassKind}
-    assert styles == {
+    cells = drawio_cells(output)
+    classes = [cell for cell in cells.values() if cell.get("vertex") == "1" and cell.get("parent") == "1"]
+    styles = [cell.get("style") for cell in cells.values() if cell.get("edge") == "1"]
+
+    assert len(classes) == len(ClassKind)
+    assert {cell.get("value") for cell in classes} == {kind.value if kind == ClassKind.CLASS else f"&lt;&lt;{kind.value}&gt;&gt; {kind.value}" for kind in ClassKind}
+    for expected in (
         "endArrow=block;endFill=0;",
         "endArrow=block;endFill=0;dashed=1;",
         "endArrow=open;",
         "startArrow=diamond;startFill=0;endArrow=none;",
         "startArrow=diamond;startFill=1;endArrow=none;",
-    }
+    ):
+        assert any("edgeStyle=orthogonalEdgeStyle" in style and expected in style for style in styles)
 
 
 def test_graphviz_source_escapes_dynamic_html_label_text():
@@ -89,16 +96,84 @@ def test_graphviz_source_escapes_dynamic_html_label_text():
     assert "find&lt;&amp;&gt;(key: Map&lt;K, V&gt;&amp;): Result&lt;T&gt;&amp;" in dot.source
 
 
-def test_drawio_xml_preserves_attribute_and_return_types(tmp_path: Path):
+def test_drawio_xml_uses_escaped_uml_compartments_without_literal_newlines(tmp_path: Path):
     output = tmp_path / "diagram.drawio"
     uml_class = UMLClass(
         "Repository",
-        attributes=[UMLAttribute("items", "List<Order>")],
+        attributes=[UMLAttribute("items<&>", "List<Order>&"), UMLAttribute("cache", "dict[str, Order]")],
+        methods=[UMLMethod("find<&>", ["id: Map<K, V>&"], "Order<&>"), UMLMethod("save", ["order: Order"])],
+    )
+
+    DrawioRenderer().render(UMLDiagram(classes={uml_class.name: uml_class}), str(output))
+
+    cells = drawio_cells(output)
+    parent = next(cell for cell in cells.values() if cell.get("vertex") == "1" and cell.get("parent") == "1")
+    children = [cell for cell in cells.values() if cell.get("parent") == parent.get("id")]
+
+    assert "swimlane" in parent.get("style", "")
+    assert len(children) == 3
+    assert all("\\n" not in cell.get("value", "") for cell in cells.values())
+    assert any("items&lt;&amp;&gt;: List&lt;Order&gt;&amp;" in cell.get("value", "") for cell in children)
+    assert any("find&lt;&amp;&gt;(id: Map&lt;K, V&gt;&amp;): Order&lt;&amp;&gt;" in cell.get("value", "") for cell in children)
+
+
+def test_drawio_xml_escapes_titles_and_grows_for_compartments(tmp_path: Path):
+    output = tmp_path / "diagram.drawio"
+    uml_class = UMLClass(
+        "Box<T>&",
+        attributes=[UMLAttribute("items", "List<Order>"), UMLAttribute("cache", "dict[str, Order]")],
         methods=[UMLMethod("find", ["id: int"], "Order")],
     )
 
     DrawioRenderer().render(UMLDiagram(classes={uml_class.name: uml_class}), str(output))
 
-    label = ET.parse(output).getroot().find(".//mxCell[@vertex='1']").get("value")
-    assert "+ items: List<Order>" in label
-    assert "+ find(id: int): Order" in label
+    parent = next(cell for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1")
+    assert "Box&lt;T&gt;&amp;" in parent.get("value", "")
+    assert float(parent.find("mxGeometry").get("height")) > 86
+
+
+def test_drawio_xml_is_deterministic(tmp_path: Path):
+    diagram = diagram_with_every_style()
+    first = tmp_path / "first.drawio"
+    second = tmp_path / "second.drawio"
+
+    DrawioRenderer().render(diagram, str(first))
+    DrawioRenderer().render(diagram, str(second))
+
+    assert first.read_bytes() == second.read_bytes()
+
+
+def test_drawio_xml_places_hierarchy_parents_above_children(tmp_path: Path):
+    classes = {name: UMLClass(name) for name in ("Base", "Contract", "Child")}
+    diagram = UMLDiagram(
+        classes=classes,
+        relationships=[
+            UMLRelationship("Child", "Base", RelationshipType.INHERITANCE),
+            UMLRelationship("Child", "Contract", RelationshipType.IMPLEMENTATION),
+        ],
+    )
+    output = tmp_path / "diagram.drawio"
+
+    DrawioRenderer().render(diagram, str(output))
+
+    y_by_title = {cell.get("value"): float(cell.find("mxGeometry").get("y")) for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1"}
+    assert y_by_title["Base"] < y_by_title["Child"]
+    assert y_by_title["Contract"] < y_by_title["Child"]
+
+
+def test_drawio_xml_places_inheritance_cycles_at_the_same_fallback_rank(tmp_path: Path):
+    diagram = UMLDiagram(
+        classes={name: UMLClass(name) for name in ("A", "B")},
+        relationships=[
+            UMLRelationship("A", "B", RelationshipType.INHERITANCE),
+            UMLRelationship("B", "A", RelationshipType.IMPLEMENTATION),
+        ],
+    )
+    renderer = DrawioRenderer()
+    output = tmp_path / "diagram.drawio"
+
+    assert renderer._hierarchy_ranks(diagram) == {"A": 0, "B": 0}
+    renderer.render(diagram, str(output))
+
+    y_by_title = {cell.get("value"): float(cell.find("mxGeometry").get("y")) for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1"}
+    assert y_by_title["A"] == y_by_title["B"]
