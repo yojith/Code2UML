@@ -100,8 +100,8 @@ def test_drawio_xml_uses_escaped_uml_compartments_without_literal_newlines(tmp_p
     output = tmp_path / "diagram.drawio"
     uml_class = UMLClass(
         "Repository",
-        attributes=[UMLAttribute("items", "List<Order>"), UMLAttribute("cache", "dict[str, Order]")],
-        methods=[UMLMethod("find", ["id: int"], "Order"), UMLMethod("save", ["order: Order"])],
+        attributes=[UMLAttribute("items<&>", "List<Order>&"), UMLAttribute("cache", "dict[str, Order]")],
+        methods=[UMLMethod("find<&>", ["id: Map<K, V>&"], "Order<&>"), UMLMethod("save", ["order: Order"])],
     )
 
     DrawioRenderer().render(UMLDiagram(classes={uml_class.name: uml_class}), str(output))
@@ -113,8 +113,8 @@ def test_drawio_xml_uses_escaped_uml_compartments_without_literal_newlines(tmp_p
     assert "swimlane" in parent.get("style", "")
     assert len(children) == 3
     assert all("\\n" not in cell.get("value", "") for cell in cells.values())
-    assert any("items: List&lt;Order&gt;" in cell.get("value", "") for cell in children)
-    assert any("find(id: int): Order" in cell.get("value", "") for cell in children)
+    assert any("items&lt;&amp;&gt;: List&lt;Order&gt;&amp;" in cell.get("value", "") for cell in children)
+    assert any("find&lt;&amp;&gt;(id: Map&lt;K, V&gt;&amp;): Order&lt;&amp;&gt;" in cell.get("value", "") for cell in children)
 
 
 def test_drawio_xml_escapes_titles_and_grows_for_compartments(tmp_path: Path):
@@ -159,3 +159,21 @@ def test_drawio_xml_places_hierarchy_parents_above_children(tmp_path: Path):
     y_by_title = {cell.get("value"): float(cell.find("mxGeometry").get("y")) for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1"}
     assert y_by_title["Base"] < y_by_title["Child"]
     assert y_by_title["Contract"] < y_by_title["Child"]
+
+
+def test_drawio_xml_places_inheritance_cycles_at_the_same_fallback_rank(tmp_path: Path):
+    diagram = UMLDiagram(
+        classes={name: UMLClass(name) for name in ("A", "B")},
+        relationships=[
+            UMLRelationship("A", "B", RelationshipType.INHERITANCE),
+            UMLRelationship("B", "A", RelationshipType.IMPLEMENTATION),
+        ],
+    )
+    renderer = DrawioRenderer()
+    output = tmp_path / "diagram.drawio"
+
+    assert renderer._hierarchy_ranks(diagram) == {"A": 0, "B": 0}
+    renderer.render(diagram, str(output))
+
+    y_by_title = {cell.get("value"): float(cell.find("mxGeometry").get("y")) for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1"}
+    assert y_by_title["A"] == y_by_title["B"]

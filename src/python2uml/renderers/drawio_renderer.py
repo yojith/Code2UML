@@ -134,17 +134,33 @@ class DrawioRenderer:
             if relationship.relationship_type in {RelationshipType.INHERITANCE, RelationshipType.IMPLEMENTATION} and relationship.source in parents and relationship.target in parents:
                 parents[relationship.source].add(relationship.target)
 
+        cycle_nodes: set[str] = set()
+        visited: set[str] = set()
+        visiting: list[str] = []
+
+        def find_cycles(name: str) -> None:
+            if name in visiting:
+                cycle_nodes.update(visiting[visiting.index(name) :])
+                return
+            if name in visited:
+                return
+            visiting.append(name)
+            for parent in sorted(parents[name]):
+                find_cycles(parent)
+            visiting.pop()
+            visited.add(name)
+
+        for name in sorted(parents):
+            find_cycles(name)
+
         ranks: dict[str, int] = {}
-        visiting: set[str] = set()
 
         def rank(name: str) -> int:
             if name in ranks:
                 return ranks[name]
-            if name in visiting:
+            if name in cycle_nodes:
                 return 0
-            visiting.add(name)
             ranks[name] = 1 + max((rank(parent) for parent in sorted(parents[name])), default=-1)
-            visiting.remove(name)
             return ranks[name]
 
         return {name: rank(name) for name in sorted(diagram.classes)}
