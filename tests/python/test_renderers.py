@@ -121,7 +121,7 @@ def test_drawio_xml_escapes_titles_and_grows_for_compartments(tmp_path: Path):
     output = tmp_path / "diagram.drawio"
     uml_class = UMLClass(
         "Box<T>&",
-        attributes=[UMLAttribute("items", "List<Order>")],
+        attributes=[UMLAttribute("items", "List<Order>"), UMLAttribute("cache", "dict[str, Order]")],
         methods=[UMLMethod("find", ["id: int"], "Order")],
     )
 
