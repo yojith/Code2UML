@@ -13,9 +13,8 @@ The VS Code extension creates a private `.venv` in extension storage and install
 
 For CLI development, install the project and test tools from `pyproject.toml`:
 
-```bash
-python -m venv .venv
-.venv/Scripts/python -m pip install -e ".[dev]"
+```powershell
+& .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
 On macOS or Linux, use `.venv/bin/python` instead.
@@ -30,8 +29,8 @@ Generation opens a temporary SVG preview. The webview lists source diagnostics s
 
 Pass one language and one or more files or folders:
 
-```bash
-.venv/Scripts/python src/python/main.py --project-type java --output diagram.svg --paths src/test/java/project1
+```powershell
+& .\.venv\Scripts\python.exe -m python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
 ```
 
 Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML. A successful run writes one JSON object to stdout containing `output`, `classes`, `relationships`, and `diagnostics`. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
@@ -44,21 +43,15 @@ Project types are `python`, `java`, `cpp`, and `c`. The output extension selects
 - Analysis is heuristic, single-language, and source-based. It does not run a compiler, perform full semantic type resolution, infer runtime ownership, or analyze mixed-language projects.
 - When evidence competes for one source-target pair, composition wins over aggregation, which wins over association.
 
-## Fixtures and manual inspection
+## Fixtures and tests
 
-The eight projects under `src/test/{python,java,cpp,c}/{project1,project2}` exercise the supported language mappings. Inspect normalized/analyzed output and diagnostics as JSON with:
-
-```bash
-.venv/Scripts/python src/python/analyze_test_projects.py --language cpp --pretty src/test/cpp/project1 src/test/cpp/project2
-```
-
-Replace `cpp` and the paths with `python`, `java`, or `c` to inspect the other fixtures.
+The eight maintained fixtures live under `tests/fixtures/{python,java,cpp,c}/{project1,project2}`. Python tests live in `tests/python`; VS Code tests live in `tests/extension`.
 
 ## Verification
 
-```bash
-.venv/Scripts/python -m black --check src/python tests
-.venv/Scripts/python -m pytest -v
+```powershell
+& .\.venv\Scripts\python.exe -m black --check src\python2uml tests\python
+& .\.venv\Scripts\python.exe -m pytest -v
 npm run compile
 npm run lint
 npm test
