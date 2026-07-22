@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -21,11 +21,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Compile
-        run: npm run compile
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m black --check src/python2uml tests/python
+      - run: python -m pytest -v
+      - run: npm run compile
+      - run: npm run lint
+      - run: xvfb-run -a npm test
 
       - name: Package extension
-        run: npx @vscode/vsce package --no-dependencies --out python2uml-${{ github.sha }}.vsix
+        run: npm run package -- --out python2uml-${{ github.sha }}.vsix
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -38,4 +46,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx @vscode/vsce publish --packagePath python2uml-${{ github.sha }}.vsix
+        run: npx vsce publish --packagePath python2uml-${{ github.sha }}.vsix

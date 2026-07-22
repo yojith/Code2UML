@@ -21,8 +21,8 @@ dev = ["black>=25,<27", "pytest>=8,<10"]
 line-length = 200
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src/python"]
+testpaths = ["tests/python"]
 
-[tool.setuptools]
-py-modules = []
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["python2uml*"]
