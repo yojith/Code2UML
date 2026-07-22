@@ -27,11 +27,15 @@ Generation opens a temporary SVG preview. The webview lists source diagnostics s
 
 ## CLI
 
-Pass one language and one or more files or folders:
+The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. Pass one language and one or more files or folders:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
+uvx --from . python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
+uvx --from "C:\path\to\python2uml" python2uml --project-type java --output diagram.svg --paths "C:\path\to\sources"
 ```
+
+UV is optional and is not required by the VS Code extension; the extension continues to manage its own pip-installed environment.
 
 Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML. A successful run writes one JSON object to stdout containing `output`, `classes`, `relationships`, and `diagnostics`. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
 

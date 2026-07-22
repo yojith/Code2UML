@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from importlib.metadata import entry_points
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,11 @@ import pytest
 from python2uml.cli import main
 from python2uml.generator import AnalysisResult, UMLGenerator
 from python2uml.model.enums import ProjectLanguage
+
+
+def test_installed_package_exposes_python2uml_console_script():
+    matches = [entry for entry in entry_points(group="console_scripts") if entry.name == "python2uml"]
+    assert [entry.value for entry in matches] == ["python2uml.cli:main"]
 
 
 def write_partially_invalid_source(tmp_path: Path) -> Path:
