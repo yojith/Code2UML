@@ -2,6 +2,7 @@
 .vscode-test/**
 .github/**
 .git/**
+.superpowers/**
 .venv/**
 node_modules/**
 out/**/*.map
@@ -10,6 +11,7 @@ tests/**
 docs/**
 **/__pycache__/**
 **/.pytest_cache/**
+**/*.egg-info/**
 src/**/*.ts
 AGENTS.md
 TEMP_README.md
