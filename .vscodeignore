@@ -28,3 +28,4 @@ eslint.config.mjs
 tsconfig.json
 .vscode-test.mjs
 **/.DS_Store
+build/*
