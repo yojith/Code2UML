@@ -384,6 +384,7 @@ def test_module_cli_accepts_language_and_prints_diagnostics(tmp_path):
             "--output",
             str(tmp_path / "fixture.drawio"),
         ],
+        cwd=ROOT,
         check=True,
         capture_output=True,
         text=True,

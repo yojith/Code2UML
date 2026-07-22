@@ -8,11 +8,13 @@ out/**/*.map
 tests/**
 docs/**
 src/**/*.ts
+AGENTS.md
 TEMP_README.md
 report.md
 test.drawio
 *.drawio
-*.svg
+/test.svg
+/uml_diagram.svg
 *.png
 .env
 .gitignore
