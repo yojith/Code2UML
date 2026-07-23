@@ -1,15 +1,11 @@
-name: CI
+name: Build extension artifact
 
 on:
   push:
     branches: [main]
-  pull_request:
-  release:
-    types: [published]
 
 jobs:
   build:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -23,35 +19,3 @@ jobs:
           name: python2uml-vsix-${{ github.sha }}
           path: python2uml-${{ github.sha }}.vsix
           if-no-files-found: error
-
-  test:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
-      - run: uv run --extra dev --with pytest-cov pytest -v --cov=python2uml --cov-report=term-missing --cov-report=html
-      - uses: actions/upload-artifact@v4
-        with:
-          name: coverage-html
-          path: htmlcov
-          if-no-files-found: error
-
-  release:
-    if: github.event_name == 'release' && github.event.action == 'published'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.release.tag_name }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24.x"
-      - run: npm ci
-      - run: npm run package -- --out python2uml-${{ github.event.release.tag_name }}.vsix
-      - name: Publish to VS Code Marketplace
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx vsce publish --packagePath python2uml-${{ github.event.release.tag_name }}.vsix
