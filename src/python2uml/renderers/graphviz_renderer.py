@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from html import escape
+import os
 import shutil
 from pathlib import Path
 
@@ -22,12 +23,28 @@ GRAPH_ATTRS = {
 }
 
 
+def get_dot_executable() -> Path:
+    configured = os.environ.get("EXTENSION_GRAPHVIZ_DOT")
+    if not configured:
+        raise RuntimeError("Bundled Graphviz path was not supplied by the extension.")
+    dot_path = Path(configured)
+    if not dot_path.is_absolute():
+        raise RuntimeError(f"Bundled Graphviz path must be absolute: {dot_path}")
+    if not dot_path.is_file():
+        raise RuntimeError(f"Bundled Graphviz executable was not found: {dot_path}")
+    resolved = dot_path.resolve()
+    discovered = shutil.which("dot")
+    if discovered is None or Path(discovered).resolve() != resolved:
+        raise RuntimeError(f"Graphviz on PATH does not match bundled executable: {resolved}")
+    return resolved
+
+
 class GraphvizRenderer:
     def create_dot(self) -> Digraph:
         return Digraph(comment="UML Diagram", graph_attr=GRAPH_ATTRS)
 
     def render(self, diagram: UMLDiagram, output_path: str, file_extension: str = "svg") -> None:
-        self._ensure_dot_available()
+        get_dot_executable()
         dot = self.create_dot()
 
         for uml_class in diagram.classes.values():
@@ -43,10 +60,6 @@ class GraphvizRenderer:
             output_path = str(output.with_suffix(""))
 
         dot.render(output_path, format=file_extension, cleanup=True)
-
-    def _ensure_dot_available(self) -> None:
-        if shutil.which("dot") is None:
-            raise RuntimeError("Graphviz executable 'dot' was not found on PATH. Install Graphviz and make sure 'dot' is available before rendering.")
 
     def _class_label(self, uml_class: UMLClass) -> str:
         title = uml_class.name
