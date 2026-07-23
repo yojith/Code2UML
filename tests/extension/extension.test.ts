@@ -199,6 +199,12 @@ suite("Extension Test Suite", () => {
     assert.ok(!html.includes("<script>alert(1)</script>"));
     assert.ok(html.includes("&lt;script&gt;"));
     assert.ok(html.includes("Content-Security-Policy"));
+    assert.ok(html.includes('class="preview-toolbar"'));
+    assert.ok(html.includes('aria-label="Save UML diagram"'));
+    assert.ok(html.includes("Analyzed documents"));
+    assert.ok(html.includes("1 document"));
+    assert.ok(html.includes("1 diagnostic"));
+    assert.ok(html.includes("<details"));
     assert.ok(html.includes("Analyzed documents"));
     assert.ok(html.includes("Source diagnostics"));
     assert.strictEqual(isSaveMessage({ command: "save" }), true);
