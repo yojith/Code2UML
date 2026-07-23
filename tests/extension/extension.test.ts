@@ -8,7 +8,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { LANGUAGES } from "../../src/languages";
 import { resolveSelectedPaths } from "../../src/umlGenerator";
-import { parseGenerationPayload, runScript, setupVenv } from "../../src/pythonRunner";
+import { parseGenerationPayload, resolveBundledRuntime, runScript } from "../../src/pythonRunner";
 import {
   cleanupSession,
   isSaveMessage,
@@ -136,60 +136,53 @@ suite("Extension Test Suite", () => {
   });
 
   test("invokes the installed Python module", async () => {
-    const calls: Array<{ executable: string; args: string[] }> = [];
-    const run = async (executable: string, args: string[]) => {
-      calls.push({ executable, args });
+    const runtime = {
+      pythonExec: "python",
+      dotExec: "dot",
+      env: { TEST_RUNTIME: "1" },
+    };
+    const calls: Array<{ executable: string; args: string[]; options: { env: NodeJS.ProcessEnv; windowsHide: boolean } }> = [];
+    const run = async (executable: string, args: string[], options: { env: NodeJS.ProcessEnv; windowsHide: boolean }) => {
+      calls.push({ executable, args, options });
       return { stdout: JSON.stringify({ output: "diagram.drawio", classes: {}, relationships: [], diagnostics: [] }), stderr: "" };
     };
-    await runScript("python", ["-t", "java", "-o", "diagram.drawio", "-p", "Model.java"], run);
-    assert.deepStrictEqual(calls, [{ executable: "python", args: ["-m", "python2uml", "-t", "java", "-o", "diagram.drawio", "-p", "Model.java"] }]);
+    await runScript(runtime, ["-t", "java", "-o", "diagram.drawio", "-p", "Model.java"], run);
+    assert.deepStrictEqual(calls, [{
+      executable: "python",
+      args: ["-m", "python2uml", "-t", "java", "-o", "diagram.drawio", "-p", "Model.java"],
+      options: { env: runtime.env, windowsHide: true },
+    }]);
   });
 
-  test("setup creates once and reuses the matching project marker", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml-setup-"));
-    const storage = vscode.Uri.file(path.join(root, "storage"));
-    const extension = vscode.Uri.file(path.join(root, "extension"));
-    fs.mkdirSync(extension.fsPath);
-    fs.writeFileSync(path.join(extension.fsPath, "pyproject.toml"), '[project]\nversion = "1"\n');
-    const calls: Array<{ executable: string; args: string[] }> = [];
-    const execute = async (executable: string, args: string[]) => {
-      calls.push({ executable, args });
-      if (args[0] === "-m" && args[1] === "venv") {
-        const python = process.platform === "win32"
-          ? path.join(args[2], "Scripts", "python.exe")
-          : path.join(args[2], "bin", "python");
-        fs.mkdirSync(path.dirname(python), { recursive: true });
-        fs.writeFileSync(python, "");
-      }
-      return { stdout: "", stderr: "" };
-    };
+  test("resolves an isolated bundled Windows runtime", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml runtime "));
+    const extension = vscode.Uri.file(root);
+    const python = path.join(root, "python-runtime", "python.exe");
+    const dot = path.join(root, "graphviz", "bin", "dot.exe");
+    fs.mkdirSync(path.dirname(python), { recursive: true });
+    fs.mkdirSync(path.dirname(dot), { recursive: true });
+    fs.writeFileSync(python, "");
+    fs.writeFileSync(dot, "");
+    const parentPath = process.env.PATH;
     try {
-      const first = await setupVenv(storage, extension, execute);
-      const second = await setupVenv(storage, extension, execute);
-      assert.strictEqual(first, second);
-      const venvPath = path.join(storage.fsPath, ".venv");
-      assert.strictEqual(
-        first,
-        process.platform === "win32"
-          ? path.join(venvPath, "Scripts", "python.exe")
-          : path.join(venvPath, "bin", "python"),
-      );
-      assert.strictEqual(calls.length, 2);
-      assert.deepStrictEqual(calls[0], {
-        executable: process.platform === "win32" ? "python" : "python3",
-        args: ["-m", "venv", venvPath],
-      });
-      assert.deepStrictEqual(calls[1], {
-        executable: first,
-        args: ["-m", "pip", "install", extension.fsPath],
-      });
-      fs.writeFileSync(path.join(extension.fsPath, "pyproject.toml"), '[project]\nversion = "2"\n');
-      await setupVenv(storage, extension, execute);
-      assert.strictEqual(calls.length, 3);
-      assert.deepStrictEqual(calls[2], calls[1]);
+      const runtime = resolveBundledRuntime(extension, "win32", "x64");
+      assert.strictEqual(runtime.pythonExec, python);
+      assert.strictEqual(runtime.dotExec, dot);
+      assert.strictEqual(runtime.env.EXTENSION_GRAPHVIZ_DOT, dot);
+      assert.strictEqual(runtime.env.PYTHONNOUSERSITE, "1");
+      assert.strictEqual(runtime.env.PYTHONUNBUFFERED, "1");
+      assert.strictEqual(runtime.env.PATH?.split(path.delimiter)[0], path.dirname(dot));
+      assert.strictEqual(process.env.PATH, parentPath);
     } finally {
       fs.rmSync(root, { recursive: true });
     }
+  });
+
+  test("rejects unsupported hosts and missing runtimes", () => {
+    const extension = vscode.Uri.file(path.join(os.tmpdir(), "missing-runtime"));
+    assert.throws(() => resolveBundledRuntime(extension, "linux", "x64"), /only Windows x64.*linux-x64/);
+    assert.throws(() => resolveBundledRuntime(extension, "win32", "arm64"), /only Windows x64.*win32-arm64/);
+    assert.throws(() => resolveBundledRuntime(extension, "win32", "x64"), /python\.exe/);
   });
 
   test("preview escapes diagnostics, restricts messages, and labels documents", () => {
