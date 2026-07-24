@@ -168,9 +168,9 @@ suite("Extension Test Suite", () => {
     };
 
     await assert.rejects(
-      runScript(runtime, [], run),
+      runScript(runtime, ["--output", "diagram.svg"], run),
       {
-        message: `Python script failed using C:\\runtime\\python.exe on ${process.platform}-${process.arch} (exit code 7): runtime failure`,
+        message: `Python script failed using C:\\runtime\\python.exe for svg output on ${process.platform}-${process.arch} (exit code 7): runtime failure`,
       },
     );
   });
@@ -204,6 +204,14 @@ suite("Extension Test Suite", () => {
     assert.throws(() => resolveBundledRuntime(extension, "linux", "x64"), /only Windows x64.*linux-x64/);
     assert.throws(() => resolveBundledRuntime(extension, "win32", "arm64"), /only Windows x64.*win32-arm64/);
     assert.throws(() => resolveBundledRuntime(extension, "win32", "x64"), /python\.exe/);
+  });
+
+  test("rejects Windows x64 remote extension hosts", () => {
+    const extension = vscode.Uri.file(path.join(os.tmpdir(), "missing-runtime"));
+    assert.throws(
+      () => resolveBundledRuntime(extension, "win32", "x64", "ssh-remote"),
+      /only local Windows x64.*ssh-remote/,
+    );
   });
 
   test("preview escapes diagnostics, restricts messages, and labels documents", () => {

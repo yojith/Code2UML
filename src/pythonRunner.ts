@@ -2,7 +2,7 @@ import { execFile } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
-import { Uri } from "vscode";
+import { env, Uri } from "vscode";
 
 type ProcessResult = { stdout: string | Buffer; stderr: string | Buffer };
 type ProcessOptions = { env: NodeJS.ProcessEnv; windowsHide: boolean };
@@ -72,7 +72,11 @@ export function resolveBundledRuntime(
   extensionUri: Uri,
   platform = process.platform,
   architecture = process.arch,
+  remoteName = env.remoteName,
 ): BundledRuntime {
+  if (remoteName) {
+    throw new Error(`Python2UML currently supports only local Windows x64 extension hosts; detected remote host ${remoteName} on ${platform}-${architecture}`);
+  }
   if (platform !== "win32" || architecture !== "x64") {
     throw new Error(`Python2UML currently supports only Windows x64; detected ${platform}-${architecture}`);
   }
@@ -190,7 +194,9 @@ export async function runScript(
     const processError = error as { code?: unknown; stderr?: string | Buffer };
     const message = error instanceof Error ? error.message : String(error);
     const stderr = processError.stderr ? String(processError.stderr).trim() : "";
-    throw new Error(`Python script failed using ${runtime.pythonExec} on ${process.platform}-${process.arch} (exit code ${String(processError.code ?? "unknown")}): ${stderr || message}`);
+    const outputIndex = args.findIndex((argument) => argument === "-o" || argument === "--output");
+    const outputFormat = outputIndex >= 0 ? path.extname(args[outputIndex + 1] ?? "").slice(1).toLowerCase() || "unknown" : "unknown";
+    throw new Error(`Python script failed using ${runtime.pythonExec} for ${outputFormat} output on ${process.platform}-${process.arch} (exit code ${String(processError.code ?? "unknown")}): ${stderr || message}`);
   }
   return parseGenerationPayload(String(stdout));
 }
