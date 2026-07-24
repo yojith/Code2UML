@@ -169,7 +169,9 @@ suite("Extension Test Suite", () => {
 
     await assert.rejects(
       runScript(runtime, [], run),
-      /Python script failed using C:\\runtime\\python\.exe on .* \(exit code 7\): runtime failure/,
+      {
+        message: `Python script failed using C:\\runtime\\python.exe on ${process.platform}-${process.arch} (exit code 7): runtime failure`,
+      },
     );
   });
 

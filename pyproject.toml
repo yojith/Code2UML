@@ -18,7 +18,7 @@ dependencies = [
 python2uml = "python2uml.cli:main"
 
 [project.optional-dependencies]
-dev = ["black>=25,<27", "pytest>=8,<10"]
+dev = ["black>=25,<26", "pytest>=8,<10"]
 
 [tool.black]
 line-length = 200
