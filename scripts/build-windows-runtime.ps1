@@ -13,9 +13,11 @@ Set-StrictMode -Version Latest
 
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $BuildPython = if ($BuildPython) { $BuildPython } else { Join-Path $repositoryRoot '.venv\Scripts\python.exe' }
-$pythonRuntime = Join-Path $repositoryRoot 'python-runtime'
-$graphvizRuntime = Join-Path $repositoryRoot 'graphviz'
-$licenses = Join-Path $repositoryRoot 'licenses'
+$BuildPython = [IO.Path]::GetFullPath($BuildPython)
+$pythonRuntime = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'python-runtime'))
+$graphvizRuntime = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'graphviz'))
+$licenses = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'licenses'))
+$allowedGeneratedPaths = $pythonRuntime, $graphvizRuntime, $licenses
 
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or $env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
     throw 'Runtime assembly supports only Windows x64.'
@@ -25,11 +27,19 @@ if (-not (Test-Path -LiteralPath $BuildPython -PathType Leaf)) {
 }
 
 function Remove-GeneratedDirectory([string]$Path) {
-    if ([IO.Path]::GetFullPath((Split-Path -Parent $Path)) -ne $repositoryRoot) {
-        throw "Refusing to remove path outside the repository root: $Path"
+    $normalizedPath = [IO.Path]::GetFullPath($Path)
+    if ($normalizedPath -notin $allowedGeneratedPaths) {
+        throw "Refusing to remove unexpected generated path: $Path"
     }
-    if (Test-Path -LiteralPath $Path) {
-        Remove-Item -LiteralPath $Path -Recurse -Force
+    if (Test-Path -LiteralPath $normalizedPath) {
+        $target = Get-Item -LiteralPath $normalizedPath -Force
+        if (-not $target.PSIsContainer) {
+            throw "Refusing to remove generated path that is not a directory: $normalizedPath"
+        }
+        if (($target.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Refusing to remove generated directory that is a reparse point: $normalizedPath"
+        }
+        Remove-Item -LiteralPath $normalizedPath -Recurse -Force
     }
 }
 
@@ -57,10 +67,12 @@ try {
 
     $pythonArchive = Join-Path $temporary 'python.zip'
     $graphvizArchive = Join-Path $temporary 'graphviz.zip'
+    $graphvizLicense = Join-Path $temporary 'graphviz-LICENSE'
     $graphvizExtract = Join-Path $temporary 'graphviz-extracted'
     $requirements = Join-Path $temporary 'requirements.txt'
     Get-VerifiedDownload $pythonUrl $pythonSha256 $pythonArchive
     Get-VerifiedDownload $graphvizUrl $graphvizSha256 $graphvizArchive
+    Get-VerifiedDownload $graphvizLicenseUrl $graphvizLicenseSha256 $graphvizLicense
     Expand-Archive -LiteralPath $pythonArchive -DestinationPath $pythonRuntime
     Expand-Archive -LiteralPath $graphvizArchive -DestinationPath $graphvizExtract
 
@@ -68,7 +80,7 @@ try {
     $pthContent = (Get-Content -LiteralPath $pth -Raw).Replace('#import site', "Lib/site-packages`r`nimport site")
     Set-Content -LiteralPath $pth -Value $pthContent -NoNewline -Encoding ascii
 
-    & uv export --frozen --no-dev --no-emit-project --output-file $requirements
+    & uv export --locked --no-dev --no-emit-project --output-file $requirements
     if ($LASTEXITCODE -ne 0) { throw 'uv export failed.' }
     $sitePackages = Join-Path $pythonRuntime 'Lib\site-packages'
     & $BuildPython -m pip install --only-binary=:all: --requirement $requirements --target $sitePackages
@@ -80,7 +92,7 @@ try {
     if (-not $dot) { throw 'dot.exe was not found in the Graphviz archive.' }
     Copy-Item -Path (Join-Path $dot.Directory.Parent.FullName '*') -Destination $graphvizRuntime -Recurse
     Copy-Item -LiteralPath (Join-Path $pythonRuntime 'LICENSE.txt') -Destination (Join-Path $licenses 'python\LICENSE.txt')
-    Get-VerifiedDownload $graphvizLicenseUrl $graphvizLicenseSha256 (Join-Path $licenses 'graphviz\LICENSE')
+    Copy-Item -LiteralPath $graphvizLicense -Destination (Join-Path $licenses 'graphviz\LICENSE')
 
     $bundledPython = Join-Path $pythonRuntime 'python.exe'
     $bundledDot = Join-Path $graphvizRuntime 'bin\dot.exe'
