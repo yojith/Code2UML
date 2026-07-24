@@ -68,11 +68,21 @@ function requireFile(filePath: string, label: string): void {
   throw new Error(`${label} was not found: ${filePath}`);
 }
 
+function requireVisualCppRuntime(systemRoot: string | undefined): void {
+  const systemDirectory = systemRoot ? path.join(systemRoot, "System32") : "";
+  const requiredFiles = ["vcruntime140.dll", "msvcp140.dll"];
+  if (systemDirectory && requiredFiles.every((file) => fs.existsSync(path.join(systemDirectory, file)))) {
+    return;
+  }
+  throw new Error("Python2UML requires the Microsoft Visual C++ 2015-2022 Redistributable x64. Install it from https://aka.ms/vs/17/release/vc_redist.x64.exe and restart VS Code.");
+}
+
 export function resolveBundledRuntime(
   extensionUri: Uri,
   platform = process.platform,
   architecture = process.arch,
   remoteName = env.remoteName,
+  systemRoot = process.env.SystemRoot ?? process.env.WINDIR,
 ): BundledRuntime {
   if (remoteName) {
     throw new Error(`Python2UML currently supports only local Windows x64 extension hosts; detected remote host ${remoteName} on ${platform}-${architecture}`);
@@ -85,6 +95,7 @@ export function resolveBundledRuntime(
   const dotExec = path.join(extensionPath, "graphviz", "bin", "dot.exe");
   requireFile(pythonExec, "Bundled Python executable");
   requireFile(dotExec, "Bundled Graphviz executable");
+  requireVisualCppRuntime(systemRoot);
   const graphvizBin = path.dirname(dotExec);
   return {
     pythonExec,

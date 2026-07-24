@@ -180,13 +180,17 @@ suite("Extension Test Suite", () => {
     const extension = vscode.Uri.file(root);
     const python = path.join(root, "python-runtime", "python.exe");
     const dot = path.join(root, "graphviz", "bin", "dot.exe");
+    const systemRoot = path.join(root, "Windows");
     fs.mkdirSync(path.dirname(python), { recursive: true });
     fs.mkdirSync(path.dirname(dot), { recursive: true });
+    fs.mkdirSync(path.join(systemRoot, "System32"), { recursive: true });
     fs.writeFileSync(python, "");
     fs.writeFileSync(dot, "");
+    fs.writeFileSync(path.join(systemRoot, "System32", "vcruntime140.dll"), "");
+    fs.writeFileSync(path.join(systemRoot, "System32", "msvcp140.dll"), "");
     const parentPath = process.env.PATH;
     try {
-      const runtime = resolveBundledRuntime(extension, "win32", "x64");
+      const runtime = resolveBundledRuntime(extension, "win32", "x64", undefined, systemRoot);
       assert.strictEqual(runtime.pythonExec, python);
       assert.strictEqual(runtime.dotExec, dot);
       assert.strictEqual(runtime.env.EXTENSION_GRAPHVIZ_DOT, dot);
@@ -212,6 +216,28 @@ suite("Extension Test Suite", () => {
       () => resolveBundledRuntime(extension, "win32", "x64", "ssh-remote"),
       /only local Windows x64.*ssh-remote/,
     );
+  });
+
+  test("directs users to the official VC++ x64 redistributable when it is missing", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml runtime "));
+    const extension = vscode.Uri.file(root);
+    const python = path.join(root, "python-runtime", "python.exe");
+    const dot = path.join(root, "graphviz", "bin", "dot.exe");
+    const systemRoot = path.join(root, "Windows");
+    fs.mkdirSync(path.dirname(python), { recursive: true });
+    fs.mkdirSync(path.dirname(dot), { recursive: true });
+    fs.mkdirSync(path.join(systemRoot, "System32"), { recursive: true });
+    fs.writeFileSync(python, "");
+    fs.writeFileSync(dot, "");
+
+    try {
+      assert.throws(
+        () => resolveBundledRuntime(extension, "win32", "x64", undefined, systemRoot),
+        /Microsoft Visual C\+\+ 2015-2022 Redistributable x64.*https:\/\/aka\.ms\/vs\/17\/release\/vc_redist\.x64\.exe/,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true });
+    }
   });
 
   test("preview escapes diagnostics, restricts messages, and labels documents", () => {
