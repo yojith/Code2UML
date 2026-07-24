@@ -187,6 +187,7 @@ suite("Extension Test Suite", () => {
     fs.writeFileSync(python, "");
     fs.writeFileSync(dot, "");
     fs.writeFileSync(path.join(systemRoot, "System32", "vcruntime140.dll"), "");
+    fs.writeFileSync(path.join(systemRoot, "System32", "vcruntime140_1.dll"), "");
     fs.writeFileSync(path.join(systemRoot, "System32", "msvcp140.dll"), "");
     const parentPath = process.env.PATH;
     try {
@@ -229,6 +230,8 @@ suite("Extension Test Suite", () => {
     fs.mkdirSync(path.join(systemRoot, "System32"), { recursive: true });
     fs.writeFileSync(python, "");
     fs.writeFileSync(dot, "");
+    fs.writeFileSync(path.join(systemRoot, "System32", "vcruntime140.dll"), "");
+    fs.writeFileSync(path.join(systemRoot, "System32", "msvcp140.dll"), "");
 
     try {
       assert.throws(

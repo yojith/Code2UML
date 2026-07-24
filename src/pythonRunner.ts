@@ -70,7 +70,7 @@ function requireFile(filePath: string, label: string): void {
 
 function requireVisualCppRuntime(systemRoot: string | undefined): void {
   const systemDirectory = systemRoot ? path.join(systemRoot, "System32") : "";
-  const requiredFiles = ["vcruntime140.dll", "msvcp140.dll"];
+  const requiredFiles = ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"];
   if (systemDirectory && requiredFiles.every((file) => fs.existsSync(path.join(systemDirectory, file)))) {
     return;
   }
