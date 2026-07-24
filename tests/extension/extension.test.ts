@@ -154,6 +154,25 @@ suite("Extension Test Suite", () => {
     }]);
   });
 
+  test("reports process rejection diagnostics", async () => {
+    const runtime = {
+      pythonExec: "C:\\runtime\\python.exe",
+      dotExec: "C:\\graphviz\\dot.exe",
+      env: {},
+    };
+    const run = async () => {
+      throw Object.assign(new Error("process failed"), {
+        code: 7,
+        stderr: "runtime failure\n",
+      });
+    };
+
+    await assert.rejects(
+      runScript(runtime, [], run),
+      /Python script failed using C:\\runtime\\python\.exe on .* \(exit code 7\): runtime failure/,
+    );
+  });
+
   test("resolves an isolated bundled Windows runtime", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml runtime "));
     const extension = vscode.Uri.file(root);
