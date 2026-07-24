@@ -10,7 +10,7 @@ The Marketplace extension requires a Windows x64 extension host. It bundles its 
 
 WSL, remote extension hosts (including SSH and dev containers), Windows ARM64, Linux, and macOS are not supported.
 
-Source CLI development requires Python 3.11 or newer and [Graphviz](https://graphviz.org/download/) with `dot` on `PATH`. Install the project and test tools from `pyproject.toml`:
+Source CLI development requires Python 3.11 or newer. Graphviz-backed output also requires [Graphviz](https://graphviz.org/download/) with `dot.exe` on `PATH` and `EXTENSION_GRAPHVIZ_DOT` set to its absolute path; draw.io output does not. Install the project and test tools from `pyproject.toml`:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
@@ -26,13 +26,21 @@ Generation opens a temporary SVG preview. The webview lists source diagnostics s
 
 Before testing the extension in an Extension Development Host on Windows x64, assemble the bundled runtime:
 
+Runtime assembly requires [uv](https://docs.astral.sh/uv/) on `PATH` to install the locked build and production dependencies.
+
 ```powershell
 npm run build:runtime:win32-x64
 ```
 
 ## CLI
 
-The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. Pass one language and one or more files or folders:
+The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. Before requesting SVG or another Graphviz-backed format, select the same absolute `dot.exe` exposed on `PATH`:
+
+```powershell
+$env:EXTENSION_GRAPHVIZ_DOT = (Get-Command dot.exe -ErrorAction Stop).Source
+```
+
+Then pass one language and one or more files or folders:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
@@ -40,7 +48,7 @@ uvx --from . python2uml --project-type java --output diagram.svg --paths tests\f
 uvx --from "C:\path\to\python2uml" python2uml --project-type java --output diagram.svg --paths "C:\path\to\sources"
 ```
 
-UV is optional for source CLI development and is not required by the Marketplace extension.
+uv is optional for ordinary source CLI invocation, required only when assembling the extension runtime, and not required by Marketplace users.
 
 Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML. A successful run writes one JSON object to stdout containing `output`, `classes`, `relationships`, and `diagnostics`. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
 

@@ -28,7 +28,7 @@ jobs:
       - run: npm run compile
       - run: npm run lint
       - run: npm test
-      - run: npm run build:runtime:win32-x64 -- -BuildPython "${{ env.pythonLocation }}\python.exe"
+      - run: npm run build:runtime:win32-x64
       - run: npm run package -- --target win32-x64 --out python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix
       - name: Inspect VSIX
         shell: pwsh
@@ -41,6 +41,8 @@ jobs:
             $entryNames = @($archive.Entries.FullName)
             $requiredFiles = @(
               'extension/out/src/extension.js'
+              'extension/package.json'
+              'extension/media/python2uml.svg'
               'extension/python-runtime/python.exe'
               'extension/python-runtime/Lib/site-packages/python2uml/__init__.py'
               'extension/graphviz/bin/dot.exe'
@@ -58,7 +60,13 @@ jobs:
                 throw "Missing required VSIX prefix: $prefix"
               }
             }
+            $forbiddenPrefixes = 'extension/src/', 'extension/build/', 'extension/scripts/'
+            $forbiddenFiles = 'extension/pyproject.toml', 'extension/uv.lock'
             $forbidden = foreach ($name in $entryNames) {
+              if (($forbiddenFiles -ccontains $name) -or ($forbiddenPrefixes | Where-Object { $name.StartsWith($_, [StringComparison]::Ordinal) })) {
+                $name
+                continue
+              }
               $components = $name.Split('/')
               if ($components | Where-Object { '.venv', '.git', '__pycache__', 'tests' -ccontains $_ }) {
                 $name

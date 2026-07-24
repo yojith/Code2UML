@@ -12,7 +12,10 @@ docs/**
 **/__pycache__/**
 **/.pytest_cache/**
 **/*.egg-info/**
-src/**/*.ts
+src/**
+scripts/**
+pyproject.toml
+uv.lock
 AGENTS.md
 TEMP_README.md
 report.md
@@ -28,7 +31,7 @@ eslint.config.mjs
 tsconfig.json
 .vscode-test.mjs
 **/.DS_Store
-build/*
+build/**
 !python-runtime/**
 !graphviz/**
 !licenses/**

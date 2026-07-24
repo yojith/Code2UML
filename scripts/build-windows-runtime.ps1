@@ -44,7 +44,7 @@ function Remove-GeneratedDirectory([string]$Path) {
 }
 
 function Get-VerifiedDownload([string]$Uri, [string]$Sha256, [string]$Destination) {
-    Invoke-WebRequest -Uri $Uri -OutFile $Destination
+    Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Destination
     $actual = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actual -ne $Sha256) {
         throw "Checksum mismatch for $Uri. Expected $Sha256; got $actual."
@@ -83,9 +83,9 @@ try {
     & uv export --locked --no-dev --no-emit-project --output-file $requirements
     if ($LASTEXITCODE -ne 0) { throw 'uv export failed.' }
     $sitePackages = Join-Path $pythonRuntime 'Lib\site-packages'
-    & $BuildPython -m pip install --only-binary=:all: --requirement $requirements --target $sitePackages
+    & uv pip install --python $BuildPython --only-binary=:all: --requirement $requirements --target $sitePackages
     if ($LASTEXITCODE -ne 0) { throw 'Production dependency installation failed.' }
-    & $BuildPython -m pip install --no-deps --target $sitePackages $repositoryRoot
+    & uv pip install --python $BuildPython --no-deps --no-build-isolation --target $sitePackages $repositoryRoot
     if ($LASTEXITCODE -ne 0) { throw 'Backend installation failed.' }
 
     $dot = Get-ChildItem -LiteralPath $graphvizExtract -Filter dot.exe -File -Recurse | Where-Object { $_.Directory.Name -eq 'bin' } | Select-Object -First 1
