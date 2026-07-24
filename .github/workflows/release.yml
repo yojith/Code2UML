@@ -34,29 +34,50 @@ jobs:
         shell: pwsh
         run: |
           $vsix = "python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix"
-          $expanded = Join-Path $env:RUNNER_TEMP 'python2uml-vsix'
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          [IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path -LiteralPath $vsix).Path, $expanded)
-          $required = @(
-            'extension/out/src/extension.js'
-            'extension/python-runtime/python.exe'
-            'extension/python-runtime/Lib/site-packages/python2uml/__init__.py'
-            'extension/graphviz/bin/dot.exe'
-            'extension/graphviz/lib'
-            'extension/graphviz/share'
-            'extension/licenses/python/LICENSE.txt'
-            'extension/licenses/graphviz/LICENSE'
-            'extension/THIRD_PARTY_NOTICES.md'
-          )
-          foreach ($entry in $required) {
-            if (-not (Test-Path -LiteralPath (Join-Path $expanded $entry))) {
-              throw "Missing required VSIX entry: $entry"
+          $archive = $null
+          try {
+            $archive = [IO.Compression.ZipFile]::OpenRead($vsix)
+            $entryNames = @($archive.Entries.FullName)
+            $requiredFiles = @(
+              'extension/out/src/extension.js'
+              'extension/python-runtime/python.exe'
+              'extension/python-runtime/Lib/site-packages/python2uml/__init__.py'
+              'extension/graphviz/bin/dot.exe'
+              'extension/licenses/python/LICENSE.txt'
+              'extension/licenses/graphviz/LICENSE'
+              'extension/THIRD_PARTY_NOTICES.md'
+            )
+            foreach ($entry in $requiredFiles) {
+              if ($entryNames -cnotcontains $entry) {
+                throw "Missing required VSIX entry: $entry"
+              }
             }
-          }
-          $forbidden = Get-ChildItem -LiteralPath $expanded -Recurse -Force |
-            Where-Object { $_.FullName.Substring($expanded.Length + 1) -match '\.venv|\.git|__pycache__|tests|pytest|black' }
-          if ($forbidden) {
-            throw "Forbidden VSIX entries:`n$($forbidden.FullName -join "`n")"
+            foreach ($prefix in 'extension/graphviz/lib/', 'extension/graphviz/share/') {
+              if (-not ($entryNames | Where-Object { $_.StartsWith($prefix, [StringComparison]::Ordinal) })) {
+                throw "Missing required VSIX prefix: $prefix"
+              }
+            }
+            $forbidden = foreach ($name in $entryNames) {
+              $components = $name.Split('/')
+              if ($components | Where-Object { '.venv', '.git', '__pycache__', 'tests' -ccontains $_ }) {
+                $name
+                continue
+              }
+              if ($name.StartsWith('extension/python-runtime/Lib/site-packages/', [StringComparison]::Ordinal)) {
+                foreach ($component in $components[4..($components.Count - 1)]) {
+                  if (('black', 'pytest', '_pytest' -ccontains $component) -or $component -cmatch '^(black|pytest|_pytest)-[^/]+\.(dist-info|data)$') {
+                    $name
+                    break
+                  }
+                }
+              }
+            }
+            if ($forbidden) {
+              throw "Forbidden VSIX entries:`n$($forbidden -join "`n")"
+            }
+          } finally {
+            if ($archive) { $archive.Dispose() }
           }
       - name: Publish to VS Code Marketplace
         env:
