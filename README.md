@@ -6,12 +6,11 @@ Python is parsed with the standard-library `ast` module. Java, C++, and C use th
 
 ## Requirements
 
-- Python 3.11 or newer with `pip`
-- [Graphviz](https://graphviz.org/download/) with `dot` on `PATH` for preview and Graphviz formats
+The Marketplace extension requires a Windows x64 extension host. It bundles its own Python runtime and Graphviz, so no separate Python, virtual environment, pip installation, or Graphviz installation is needed.
 
-The VS Code extension creates a private `.venv` in extension storage and installs this project with pip the first time it runs. Later runs reuse that environment.
+WSL, remote extension hosts (including SSH and dev containers), Windows ARM64, Linux, and macOS are not supported.
 
-For CLI development, install the project and test tools from `pyproject.toml`:
+Source CLI development requires Python 3.11 or newer and [Graphviz](https://graphviz.org/download/) with `dot` on `PATH`. Install the project and test tools from `pyproject.toml`:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
@@ -25,6 +24,12 @@ Choose **Generate UML for Python**, **Java**, **C++**, or **C** from the Python2
 
 Generation opens a temporary SVG preview. The webview lists source diagnostics separately and offers **Save As...**. Saving SVG copies the preview; PNG, PDF, JPG, and draw.io selections rerender the same inputs. Closing the preview removes its temporary session files.
 
+Before testing the extension in an Extension Development Host on Windows x64, assemble the bundled runtime:
+
+```powershell
+npm run build:runtime:win32-x64
+```
+
 ## CLI
 
 The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. Pass one language and one or more files or folders:
@@ -35,7 +40,7 @@ uvx --from . python2uml --project-type java --output diagram.svg --paths tests\f
 uvx --from "C:\path\to\python2uml" python2uml --project-type java --output diagram.svg --paths "C:\path\to\sources"
 ```
 
-UV is optional and is not required by the VS Code extension; the extension continues to manage its own pip-installed environment.
+UV is optional for source CLI development and is not required by the Marketplace extension.
 
 Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML. A successful run writes one JSON object to stdout containing `output`, `classes`, `relationships`, and `diagnostics`. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
 

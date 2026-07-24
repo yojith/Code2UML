@@ -6,16 +6,56 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: "24.x"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - uses: astral-sh/setup-uv@v6
       - run: npm ci
-      - run: npm run package -- --out python2uml-${{ github.sha }}.vsix
+      - run: uv sync --extra dev --frozen
+      - run: uv run --frozen --extra dev python -m black --check src/python2uml tests/python
+      - run: uv run --frozen --extra dev python -m pytest -v
+      - run: npm run compile
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:runtime:win32-x64 -- -BuildPython "${{ env.pythonLocation }}\python.exe"
+      - run: npm run package -- --target win32-x64 --out python2uml-win32-x64-${{ github.sha }}.vsix
+      - name: Inspect VSIX
+        shell: pwsh
+        run: |
+          $vsix = "python2uml-win32-x64-${{ github.sha }}.vsix"
+          $expanded = Join-Path $env:RUNNER_TEMP 'python2uml-vsix'
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path -LiteralPath $vsix).Path, $expanded)
+          $required = @(
+            'extension/out/src/extension.js'
+            'extension/python-runtime/python.exe'
+            'extension/python-runtime/Lib/site-packages/python2uml/__init__.py'
+            'extension/graphviz/bin/dot.exe'
+            'extension/graphviz/lib'
+            'extension/graphviz/share'
+            'extension/licenses/python/LICENSE.txt'
+            'extension/licenses/graphviz/LICENSE'
+            'extension/THIRD_PARTY_NOTICES.md'
+          )
+          foreach ($entry in $required) {
+            if (-not (Test-Path -LiteralPath (Join-Path $expanded $entry))) {
+              throw "Missing required VSIX entry: $entry"
+            }
+          }
+          $forbidden = Get-ChildItem -LiteralPath $expanded -Recurse -Force |
+            Where-Object { $_.FullName.Substring($expanded.Length + 1) -match '\.venv|\.git|__pycache__|tests|pytest|black' }
+          if ($forbidden) {
+            throw "Forbidden VSIX entries:`n$($forbidden.FullName -join "`n")"
+          }
       - uses: actions/upload-artifact@v4
         with:
-          name: python2uml-vsix-${{ github.sha }}
-          path: python2uml-${{ github.sha }}.vsix
+          name: python2uml-win32-x64-vsix-${{ github.sha }}
+          path: python2uml-win32-x64-${{ github.sha }}.vsix
           if-no-files-found: error
