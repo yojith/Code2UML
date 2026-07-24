@@ -39,17 +39,68 @@ jobs:
           try {
             $archive = [IO.Compression.ZipFile]::OpenRead($vsix)
             $entryNames = @($archive.Entries.FullName)
+            $requiredGraphvizLicenseFiles = @(
+              'LICENSE'
+              'dependencies/ann-Copyright.txt'
+              'dependencies/ann-LGPL-2.1.txt'
+              'dependencies/brotli.txt'
+              'dependencies/bzip2.txt'
+              'dependencies/cairo.txt'
+              'dependencies/expat.txt'
+              'dependencies/fontconfig.txt'
+              'dependencies/freetype.txt'
+              'dependencies/fribidi.txt'
+              'dependencies/getopt-win32.txt'
+              'dependencies/gettext-libintl.txt'
+              'dependencies/glib.txt'
+              'dependencies/gts.txt'
+              'dependencies/harfbuzz.txt'
+              'dependencies/libffi.txt'
+              'dependencies/libgd.txt'
+              'dependencies/libiconv.txt'
+              'dependencies/libjpeg-turbo.txt'
+              'dependencies/liblzma.txt'
+              'dependencies/libpng.txt'
+              'dependencies/libwebp.txt'
+              'dependencies/msvc-runtime-license.docx'
+              'dependencies/pango.txt'
+              'dependencies/pcre2-LICENCE'
+              'dependencies/pcre2.txt'
+              'dependencies/pixman.txt'
+              'dependencies/tcl.txt'
+              'dependencies/tiff.txt'
+              'dependencies/zlib.txt'
+              'internal/brewer_colors'
+              'internal/ellipse.c'
+              'internal/randomkit.c'
+              'internal/randomkit.h'
+              'internal/rbtree-LICENSE'
+              'sources/ann_1.1.2.zip'
+              'spdx/cairo.json'
+              'spdx/fribidi.json'
+              'spdx/getopt-win32.json'
+              'spdx/gettext-libintl.json'
+              'spdx/glib.json'
+              'spdx/gts.json'
+              'spdx/libiconv.json'
+              'spdx/pango.json'
+            )
             $requiredFiles = @(
               'extension/out/src/extension.js'
               'extension/package.json'
               'extension/media/python2uml.svg'
               'extension/python-runtime/python.exe'
               'extension/python-runtime/Lib/site-packages/python2uml/__init__.py'
+              'extension/python-runtime/Lib/site-packages/python2uml-0.1.0.dist-info/METADATA'
+              'extension/python-runtime/Lib/site-packages/graphviz/__init__.py'
+              'extension/python-runtime/Lib/site-packages/tree_sitter/__init__.py'
+              'extension/python-runtime/Lib/site-packages/tree_sitter_c/_binding.pyd'
+              'extension/python-runtime/Lib/site-packages/tree_sitter_cpp/_binding.pyd'
+              'extension/python-runtime/Lib/site-packages/tree_sitter_java/_binding.pyd'
               'extension/graphviz/bin/dot.exe'
               'extension/licenses/python/LICENSE.txt'
-              'extension/licenses/graphviz/LICENSE'
               'extension/THIRD_PARTY_NOTICES.md'
-            )
+            ) + @($requiredGraphvizLicenseFiles | ForEach-Object { "extension/licenses/graphviz/$_" })
             foreach ($entry in $requiredFiles) {
               if ($entryNames -cnotcontains $entry) {
                 throw "Missing required VSIX entry: $entry"
@@ -61,7 +112,7 @@ jobs:
               }
             }
             $forbiddenPrefixes = 'extension/src/', 'extension/build/', 'extension/scripts/'
-            $forbiddenFiles = 'extension/pyproject.toml', 'extension/uv.lock'
+            $forbiddenFiles = 'extension/pyproject.toml', 'extension/uv.lock', 'extension/python-runtime/Lib/site-packages/.lock'
             $forbidden = foreach ($name in $entryNames) {
               if (($forbiddenFiles -ccontains $name) -or ($forbiddenPrefixes | Where-Object { $name.StartsWith($_, [StringComparison]::Ordinal) })) {
                 $name
@@ -74,7 +125,7 @@ jobs:
               }
               if ($name.StartsWith('extension/python-runtime/Lib/site-packages/', [StringComparison]::Ordinal)) {
                 foreach ($component in $components[4..($components.Count - 1)]) {
-                  if (('black', 'pytest', '_pytest' -ccontains $component) -or $component -cmatch '^(black|pytest|_pytest)-[^/]+\.(dist-info|data)$') {
+                  if (('black', 'pytest', '_pytest', 'setuptools', 'pip', 'wheel', 'build' -ccontains $component) -or $component -cmatch '^(black|pytest|_pytest|setuptools|pip|wheel|build)-[^/]+\.(dist-info|data)$') {
                     $name
                     break
                   }
