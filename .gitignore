@@ -18,3 +18,7 @@
 /test.svg
 /uml_diagram.*
 build/*
+/python-runtime/
+/graphviz/
+/licenses/
+/runtime-downloads/

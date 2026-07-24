@@ -29,3 +29,7 @@ tsconfig.json
 .vscode-test.mjs
 **/.DS_Store
 build/*
+!python-runtime/**
+!graphviz/**
+!licenses/**
+!THIRD_PARTY_NOTICES.md
