@@ -275,6 +275,10 @@ suite("Extension Test Suite", () => {
     assert.ok(html.includes('aria-label="Reset zoom"'));
     assert.ok(html.includes("ctrlKey"));
     assert.ok(html.includes("wheel"));
+    assert.ok(html.includes("const contentAnchorX=anchorX-paddingLeft;"));
+    assert.ok(html.includes("const contentAnchorY=anchorY-paddingTop;"));
+    assert.ok(html.includes("scroll.scrollLeft=contentX*scale/previousScale-contentAnchorX;"));
+    assert.ok(html.includes("scroll.scrollTop=contentY*scale/previousScale-contentAnchorY;"));
     assert.ok(html.includes(documentPath));
     assert.ok(html.includes("Analyzed documents"));
     assert.ok(html.includes("1 document"));

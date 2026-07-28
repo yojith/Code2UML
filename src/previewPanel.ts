@@ -104,13 +104,18 @@ function applyScale(nextScale,anchorX=scroll.clientWidth/2,anchorY=scroll.client
   const previousScale=scale;
   scale=clamp(nextScale);
   if(scale===previousScale)return;
-  const contentX=scroll.scrollLeft+anchorX;
-  const contentY=scroll.scrollTop+anchorY;
+  const styles=getComputedStyle(scroll);
+  const paddingLeft=parseFloat(styles.paddingLeft);
+  const paddingTop=parseFloat(styles.paddingTop);
+  const contentAnchorX=anchorX-paddingLeft;
+  const contentAnchorY=anchorY-paddingTop;
+  const contentX=scroll.scrollLeft+contentAnchorX;
+  const contentY=scroll.scrollTop+contentAnchorY;
   scaleElement.style.transform=\`scale(\${scale})\`;
   size.style.width=\`\${diagramWidth*scale}px\`;
   size.style.height=\`\${diagramHeight*scale}px\`;
-  scroll.scrollLeft=contentX*scale/previousScale-anchorX;
-  scroll.scrollTop=contentY*scale/previousScale-anchorY;
+  scroll.scrollLeft=contentX*scale/previousScale-contentAnchorX;
+  scroll.scrollTop=contentY*scale/previousScale-contentAnchorY;
 }
 function fitWidth(){
   const styles=getComputedStyle(scroll);
