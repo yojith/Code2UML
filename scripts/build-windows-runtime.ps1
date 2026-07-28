@@ -53,7 +53,7 @@ function Remove-GeneratedDirectory([string]$Path) {
 
 function Get-VerifiedDownload([string]$Uri, [string]$Sha256, [string]$Destination) {
     Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Destination
-    $actual = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actual = Get-Sha256 $Destination
     if ($actual -ne $Sha256) {
         throw "Checksum mismatch for $Uri. Expected $Sha256; got $actual."
     }
