@@ -27,9 +27,11 @@ export function previewHtml(
   documents: string[],
   diagnostics: SourceDiagnostic[],
   codiconCssUri: string,
+  cspSource: string,
 ): string {
   const nonce = randomBytes(16).toString("hex");
   const escapedCodiconCssUri = escapeHtml(codiconCssUri);
+  const escapedCspSource = escapeHtml(cspSource);
   const documentItems = documents.map((document) => `<li>${escapeHtml(document)}</li>`).join("");
   const diagnosticItems = diagnostics.map((diagnostic) =>
     `<li>${escapeHtml(diagnostic.severity)}: ${escapeHtml(diagnostic.path)}:${escapeHtml(diagnostic.line)}:${escapeHtml(diagnostic.column)} - ${escapeHtml(diagnostic.message)}</li>`,
@@ -39,7 +41,7 @@ export function previewHtml(
   const diagnosticState = diagnostics.length === 0 ? "success" : diagnostics.some(({ severity }) => severity === "error") ? "error" : "warning";
   return `<!DOCTYPE html>
 <html lang="en"><head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' vscode-webview-resource:; font-src vscode-webview-resource:; script-src 'nonce-${nonce}'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${escapedCspSource}; font-src ${escapedCspSource}; script-src 'nonce-${nonce}'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${escapedCodiconCssUri}">
 <style>
@@ -191,6 +193,7 @@ export function showPreview(session: GenerationSession, extensionUri: vscode.Uri
     session.documents,
     session.payload.diagnostics,
     panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "codicons", "codicon.css")).toString(),
+    panel.webview.cspSource,
   );
   panel.webview.onDidReceiveMessage(async (message: unknown) => {
     if (isSaveMessage(message)) {

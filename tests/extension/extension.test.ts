@@ -256,15 +256,19 @@ suite("Extension Test Suite", () => {
 
   test("preview escapes diagnostics, restricts messages, and labels documents", () => {
     const documentPath = path.join(os.tmpdir(), "safe.py");
+    const cspSource = "https://7f3d.example.vscode-cdn.net";
+    const codiconCssUri = `${cspSource}/media/codicons/codicon.css`;
     const html = previewHtml("<svg></svg>", [documentPath], [
       { path: "<bad>", line: 1, column: 2, severity: "error", message: "<script>alert(1)</script>" },
-    ], "vscode-webview-resource://codicons.css");
+    ], codiconCssUri, cspSource);
     assert.ok(!html.includes("<script>alert(1)</script>"));
     assert.ok(html.includes("&lt;script&gt;"));
     assert.ok(html.includes("Content-Security-Policy"));
     assert.ok(html.includes('class="preview-toolbar"'));
     assert.ok(html.includes('aria-label="Save UML diagram"'));
-    assert.ok(html.includes("vscode-webview-resource://codicons.css"));
+    assert.ok(html.includes(codiconCssUri));
+    assert.ok(html.includes(`style-src 'unsafe-inline' ${cspSource}; font-src ${cspSource};`));
+    assert.ok(!html.includes("vscode-webview-resource:"));
     assert.ok(html.includes("codicon-zoom-out"));
     assert.ok(html.includes("codicon-screen-full"));
     assert.ok(html.includes("codicon-zoom-in"));
