@@ -12,7 +12,7 @@ from python2uml.model.uml_diagram import UMLDiagram
 from python2uml.model.uml_method import UMLMethod
 from python2uml.model.uml_relationship import UMLRelationship
 from python2uml.renderers.drawio_renderer import DrawioRenderer
-from python2uml.renderers.graphviz_renderer import GraphvizRenderer
+from python2uml.renderers.graphviz_renderer import GraphvizRenderer, get_dot_executable
 
 
 def diagram_with_every_style() -> UMLDiagram:
@@ -32,16 +32,41 @@ def drawio_cells(path: Path) -> dict[str, ET.Element]:
     return {cell.get("id"): cell for cell in ET.parse(path).getroot().findall(".//mxCell")}
 
 
-def test_graphviz_render_fails_when_dot_is_missing():
-    with patch("python2uml.renderers.graphviz_renderer.shutil.which", return_value=None), pytest.raises(RuntimeError, match="Install Graphviz"):
-        GraphvizRenderer().render(UMLDiagram(), "out.svg")
+def test_graphviz_requires_bundled_dot(monkeypatch, tmp_path: Path):
+    monkeypatch.delenv("EXTENSION_GRAPHVIZ_DOT", raising=False)
+    with pytest.raises(RuntimeError, match="was not supplied"):
+        get_dot_executable()
+
+    monkeypatch.setenv("EXTENSION_GRAPHVIZ_DOT", "dot.exe")
+    with pytest.raises(RuntimeError, match="absolute"):
+        get_dot_executable()
+
+    missing = tmp_path / "graphviz" / "bin" / "dot.exe"
+    monkeypatch.setenv("EXTENSION_GRAPHVIZ_DOT", str(missing))
+    with pytest.raises(RuntimeError, match="was not found"):
+        get_dot_executable()
+
+
+def test_graphviz_requires_path_to_resolve_the_configured_dot(monkeypatch, tmp_path: Path):
+    configured = tmp_path / "graphviz" / "bin" / "dot.exe"
+    configured.parent.mkdir(parents=True)
+    configured.write_bytes(b"")
+    other = tmp_path / "system" / "dot.exe"
+    other.parent.mkdir()
+    other.write_bytes(b"")
+    monkeypatch.setenv("EXTENSION_GRAPHVIZ_DOT", str(configured))
+
+    with patch("python2uml.renderers.graphviz_renderer.shutil.which", return_value=str(other)), pytest.raises(RuntimeError, match="does not match"):
+        get_dot_executable()
+    with patch("python2uml.renderers.graphviz_renderer.shutil.which", return_value=str(configured)):
+        assert get_dot_executable() == configured.resolve()
 
 
 def test_graphviz_source_maps_every_class_kind_and_relationship_style():
     renderer = GraphvizRenderer()
     dot = renderer.create_dot()
 
-    with patch.object(renderer, "create_dot", return_value=dot), patch.object(renderer, "_ensure_dot_available"), patch.object(dot, "render"):
+    with patch.object(renderer, "create_dot", return_value=dot), patch("python2uml.renderers.graphviz_renderer.get_dot_executable"), patch.object(dot, "render"):
         renderer.render(diagram_with_every_style(), "out.svg")
 
     for kind in ClassKind:
@@ -88,7 +113,7 @@ def test_graphviz_source_escapes_dynamic_html_label_text():
         methods=[UMLMethod("find<&>", ["key: Map<K, V>&"], "Result<T>&")],
     )
 
-    with patch.object(renderer, "create_dot", return_value=dot), patch.object(renderer, "_ensure_dot_available"), patch.object(dot, "render"):
+    with patch.object(renderer, "create_dot", return_value=dot), patch("python2uml.renderers.graphviz_renderer.get_dot_executable"), patch.object(dot, "render"):
         renderer.render(UMLDiagram(classes={uml_class.name: uml_class}), "out.svg")
 
     assert "&lt;&lt;interface&gt;&gt; Box&lt;T&gt;&amp;" in dot.source

@@ -6,12 +6,13 @@ Python is parsed with the standard-library `ast` module. Java, C++, and C use th
 
 ## Requirements
 
-- Python 3.11 or newer with `pip`
-- [Graphviz](https://graphviz.org/download/) with `dot` on `PATH` for preview and Graphviz formats
+The Marketplace extension requires a Windows x64 extension host. It bundles its own Python runtime and Graphviz, so no separate Python, virtual environment, pip installation, or Graphviz installation is needed.
 
-The VS Code extension creates a private `.venv` in extension storage and installs this project with pip the first time it runs. Later runs reuse that environment.
+The bundled Graphviz runtime depends on the Microsoft VC++ 2015–2022 Redistributable x64 runtime. Install the official Microsoft x64 redistributable before using the packaged extension if Windows reports that a VC++ runtime DLL is missing.
 
-For CLI development, install the project and test tools from `pyproject.toml`:
+WSL, remote extension hosts (including SSH and dev containers), Windows ARM64, Linux, and macOS are not supported.
+
+Source CLI development requires Python 3.11 or newer. Graphviz-backed output also requires [Graphviz](https://graphviz.org/download/) with `dot.exe` on `PATH` and `EXTENSION_GRAPHVIZ_DOT` set to its absolute path; draw.io output does not. Install the project and test tools from `pyproject.toml`:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
@@ -25,9 +26,23 @@ Choose **Generate UML for Python**, **Java**, **C++**, or **C** from the Python2
 
 Generation opens a temporary SVG preview. The webview lists source diagnostics separately and offers **Save As...**. Saving SVG copies the preview; PNG, PDF, JPG, and draw.io selections rerender the same inputs. Closing the preview removes its temporary session files.
 
+Before testing the extension in an Extension Development Host on Windows x64, assemble the bundled runtime:
+
+Runtime assembly requires [uv](https://docs.astral.sh/uv/) on `PATH` to install the locked build and production dependencies.
+
+```powershell
+npm run build:runtime:win32-x64
+```
+
 ## CLI
 
-The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. Pass one language and one or more files or folders:
+The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. Before requesting SVG or another Graphviz-backed format, select the same absolute `dot.exe` exposed on `PATH`:
+
+```powershell
+$env:EXTENSION_GRAPHVIZ_DOT = (Get-Command dot.exe -ErrorAction Stop).Source
+```
+
+Then pass one language and one or more files or folders:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
@@ -35,7 +50,7 @@ uvx --from . python2uml --project-type java --output diagram.svg --paths tests\f
 uvx --from "C:\path\to\python2uml" python2uml --project-type java --output diagram.svg --paths "C:\path\to\sources"
 ```
 
-UV is optional and is not required by the VS Code extension; the extension continues to manage its own pip-installed environment.
+uv is optional for ordinary source CLI invocation, required only when assembling the extension runtime, and not required by Marketplace users.
 
 Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML. A successful run writes one JSON object to stdout containing `output`, `classes`, `relationships`, and `diagnostics`. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
 

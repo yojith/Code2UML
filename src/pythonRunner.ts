@@ -1,13 +1,19 @@
 import { execFile } from "child_process";
-import { createHash } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
-import { Uri } from "vscode";
+import { env, Uri } from "vscode";
 
 type ProcessResult = { stdout: string | Buffer; stderr: string | Buffer };
-type ProcessRunner = (executable: string, args: string[]) => Promise<ProcessResult>;
+type ProcessOptions = { env: NodeJS.ProcessEnv; windowsHide: boolean };
+type ProcessRunner = (executable: string, args: string[], options: ProcessOptions) => Promise<ProcessResult>;
 const execute = promisify(execFile) as unknown as ProcessRunner;
+
+export interface BundledRuntime {
+  pythonExec: string;
+  dotExec: string;
+  env: NodeJS.ProcessEnv;
+}
 
 export interface SourceDiagnostic {
   path: string;
@@ -53,39 +59,55 @@ export interface SerializedRelationship {
   relationship_type: RelationshipType;
 }
 
-function projectMarker(extensionPath: string): string {
-  const hash = createHash("sha256");
-  for (const name of ["pyproject.toml", "package.json"]) {
-    const metadata = path.join(extensionPath, name);
-    if (fs.existsSync(metadata)) {
-      hash.update(fs.readFileSync(metadata));
+function requireFile(filePath: string, label: string): void {
+  try {
+    if (fs.statSync(filePath).isFile()) {
+      return;
     }
-  }
-  return hash.digest("hex");
+  } catch {}
+  throw new Error(`${label} was not found: ${filePath}`);
 }
 
-export async function setupVenv(
-  storageUri: Uri,
-  extensionUri: Uri,
-  run: ProcessRunner = execute,
-): Promise<string> {
-  fs.mkdirSync(storageUri.fsPath, { recursive: true });
-  const venvPath = Uri.joinPath(storageUri, ".venv").fsPath;
-  const pythonExe = process.platform === "win32"
-    ? path.join(venvPath, "Scripts", "python.exe")
-    : path.join(venvPath, "bin", "python");
-  const markerPath = path.join(venvPath, ".python2uml-project-marker");
-  const marker = projectMarker(extensionUri.fsPath);
+function requireVisualCppRuntime(systemRoot: string | undefined): void {
+  const systemDirectory = systemRoot ? path.join(systemRoot, "System32") : "";
+  const requiredFiles = ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"];
+  if (systemDirectory && requiredFiles.every((file) => fs.existsSync(path.join(systemDirectory, file)))) {
+    return;
+  }
+  throw new Error("Python2UML requires the Microsoft Visual C++ 2015-2022 Redistributable x64. Install it from https://aka.ms/vs/17/release/vc_redist.x64.exe and restart VS Code.");
+}
 
-  const created = !fs.existsSync(pythonExe);
-  if (created) {
-    await run(process.platform === "win32" ? "python" : "python3", ["-m", "venv", venvPath]);
+export function resolveBundledRuntime(
+  extensionUri: Uri,
+  platform = process.platform,
+  architecture = process.arch,
+  remoteName = env.remoteName,
+  systemRoot = process.env.SystemRoot ?? process.env.WINDIR,
+): BundledRuntime {
+  if (remoteName) {
+    throw new Error(`Python2UML currently supports only local Windows x64 extension hosts; detected remote host ${remoteName} on ${platform}-${architecture}`);
   }
-  if (created || !fs.existsSync(markerPath) || fs.readFileSync(markerPath, "utf8") !== marker) {
-    await run(pythonExe, ["-m", "pip", "install", extensionUri.fsPath]);
-    fs.writeFileSync(markerPath, marker);
+  if (platform !== "win32" || architecture !== "x64") {
+    throw new Error(`Python2UML currently supports only Windows x64; detected ${platform}-${architecture}`);
   }
-  return pythonExe;
+  const extensionPath = `${extensionUri.fsPath[0].toUpperCase()}${extensionUri.fsPath.slice(1)}`;
+  const pythonExec = path.join(extensionPath, "python-runtime", "python.exe");
+  const dotExec = path.join(extensionPath, "graphviz", "bin", "dot.exe");
+  requireFile(pythonExec, "Bundled Python executable");
+  requireFile(dotExec, "Bundled Graphviz executable");
+  requireVisualCppRuntime(systemRoot);
+  const graphvizBin = path.dirname(dotExec);
+  return {
+    pythonExec,
+    dotExec,
+    env: {
+      ...process.env,
+      PATH: `${graphvizBin}${path.delimiter}${process.env.PATH ?? ""}`,
+      EXTENSION_GRAPHVIZ_DOT: dotExec,
+      PYTHONNOUSERSITE: "1",
+      PYTHONUNBUFFERED: "1",
+    },
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -169,15 +191,23 @@ export function parseGenerationPayload(stdout: string): GenerationPayload {
 }
 
 export async function runScript(
-  pythonExec: string,
+  runtime: BundledRuntime,
   args: string[],
   run: ProcessRunner = execute,
 ): Promise<GenerationPayload> {
+  let stdout: string | Buffer;
   try {
-    const { stdout } = await run(pythonExec, ["-m", "python2uml", ...args]);
-    return parseGenerationPayload(String(stdout));
+    ({ stdout } = await run(runtime.pythonExec, ["-m", "python2uml", ...args], {
+      env: runtime.env,
+      windowsHide: true,
+    }));
   } catch (error) {
+    const processError = error as { code?: unknown; stderr?: string | Buffer };
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Python script failed: ${message}`);
+    const stderr = processError.stderr ? String(processError.stderr).trim() : "";
+    const outputIndex = args.findIndex((argument) => argument === "-o" || argument === "--output");
+    const outputFormat = outputIndex >= 0 ? path.extname(args[outputIndex + 1] ?? "").slice(1).toLowerCase() || "unknown" : "unknown";
+    throw new Error(`Python script failed using ${runtime.pythonExec} for ${outputFormat} output on ${process.platform}-${process.arch} (exit code ${String(processError.code ?? "unknown")}): ${stderr || message}`);
   }
+  return parseGenerationPayload(String(stdout));
 }

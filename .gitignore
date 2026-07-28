@@ -3,6 +3,7 @@
 /node_modules/
 /.vscode-test/
 /*.vsix
+/*.drawio
 /.venv/
 **/__pycache__/
 **/.pytest_cache/
@@ -14,7 +15,12 @@
 /.env
 /AGENTS.md
 /.superpowers/
+/docs/superpowers
 /test.png
 /test.svg
 /uml_diagram.*
 build/*
+/python-runtime/
+/graphviz/
+/licenses/
+/runtime-downloads/

@@ -6,16 +6,31 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: "24.x"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - uses: astral-sh/setup-uv@v6
       - run: npm ci
-      - run: npm run package -- --out python2uml-${{ github.sha }}.vsix
+      - run: uv sync --extra dev --frozen
+      - run: uv run --frozen --extra dev python -m black --check src/python2uml tests/python
+      - run: uv run --frozen --extra dev python -m pytest -v
+      - run: npm run compile
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:runtime:win32-x64
+      - run: npm run package -- --target win32-x64 --out python2uml-win32-x64-${{ github.sha }}.vsix
+      - name: Inspect VSIX
+        shell: pwsh
+        run: ./scripts/verify-windows-vsix.ps1 "python2uml-win32-x64-${{ github.sha }}.vsix"
       - uses: actions/upload-artifact@v4
         with:
-          name: python2uml-vsix-${{ github.sha }}
-          path: python2uml-${{ github.sha }}.vsix
+          name: python2uml-win32-x64-vsix-${{ github.sha }}
+          path: python2uml-win32-x64-${{ github.sha }}.vsix
           if-no-files-found: error

@@ -89,7 +89,8 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src tests/extension",
     "test": "vscode-test",
-    "package": "vsce package --no-dependencies"
+    "package": "vsce package --no-dependencies",
+    "build:runtime:win32-x64": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-runtime.ps1"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
