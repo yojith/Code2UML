@@ -112,6 +112,7 @@ suite("Extension Test Suite", () => {
   test("parses the single CLI JSON payload and rejects noisy output", () => {
     const json = JSON.stringify({
       output: "diagram.svg",
+      documents: ["C:\\project\\model.py"],
       classes: {},
       relationships: [],
       diagnostics: [
@@ -119,18 +120,28 @@ suite("Extension Test Suite", () => {
       ],
     });
     assert.strictEqual(parseGenerationPayload(json).output, "diagram.svg");
+    assert.deepStrictEqual(parseGenerationPayload(json).documents, ["C:\\project\\model.py"]);
     assert.throws(() => parseGenerationPayload(`noise\n${json}`), /valid JSON/);
     assert.throws(() => parseGenerationPayload('{"output":1}'), /payload/);
     assert.throws(() => parseGenerationPayload(JSON.stringify({
       output: "diagram.svg",
+      documents: [],
       classes: { Broken: { name: 1, kind: "class", attributes: [], methods: [] } },
       relationships: [],
       diagnostics: [],
     })), /payload/);
     assert.throws(() => parseGenerationPayload(JSON.stringify({
       output: "diagram.svg",
+      documents: [],
       classes: {},
       relationships: [{ source: "A", target: "B", relationship_type: "owns" }],
+      diagnostics: [],
+    })), /payload/);
+    assert.throws(() => parseGenerationPayload(JSON.stringify({
+      output: "diagram.svg",
+      documents: [1],
+      classes: {},
+      relationships: [],
       diagnostics: [],
     })), /payload/);
   });
@@ -144,7 +155,7 @@ suite("Extension Test Suite", () => {
     const calls: Array<{ executable: string; args: string[]; options: { env: NodeJS.ProcessEnv; windowsHide: boolean } }> = [];
     const run = async (executable: string, args: string[], options: { env: NodeJS.ProcessEnv; windowsHide: boolean }) => {
       calls.push({ executable, args, options });
-      return { stdout: JSON.stringify({ output: "diagram.drawio", classes: {}, relationships: [], diagnostics: [] }), stderr: "" };
+      return { stdout: JSON.stringify({ output: "diagram.drawio", documents: [], classes: {}, relationships: [], diagnostics: [] }), stderr: "" };
     };
     await runScript(runtime, ["-t", "java", "-o", "diagram.drawio", "-p", "Model.java"], run);
     assert.deepStrictEqual(calls, [{

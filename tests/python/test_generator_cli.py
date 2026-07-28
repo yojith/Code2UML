@@ -63,7 +63,7 @@ def test_cli_renders_valid_declarations_and_reports_source_errors(tmp_path, caps
 
     assert exit_code == 0
     assert captured.err == ""
-    assert set(payload) == {"output", "classes", "relationships", "diagnostics"}
+    assert set(payload) == {"output", "classes", "relationships", "diagnostics", "documents"}
     assert payload["output"] == str(output)
     assert payload["classes"]["Valid"] == {
         "name": "Valid",
@@ -76,6 +76,21 @@ def test_cli_renders_valid_declarations_and_reports_source_errors(tmp_path, caps
     assert payload["diagnostics"] == [expected_diagnostic, expected_diagnostic]
     assert all({name: type(value) for name, value in diagnostic.items()} == {"path": str, "line": int, "column": int, "severity": str, "message": str} for diagnostic in payload["diagnostics"])
     assert output.exists()
+
+
+def test_cli_reports_analyzed_documents_in_collection_order(tmp_path, capsys, monkeypatch):
+    first = tmp_path / "a_model.py"
+    second = tmp_path / "b_model.py"
+    first.write_text("class First:\n    pass\n", encoding="utf-8")
+    second.write_text("class Second:\n    pass\n", encoding="utf-8")
+
+    monkeypatch.setattr("python2uml.generator.GraphvizRenderer.render", lambda self, diagram, output_path: None)
+
+    exit_code = main(["-t", "python", "-o", str(tmp_path / "preview.svg"), "-p", str(tmp_path)])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["documents"] == [str(first), str(second)]
 
 
 @pytest.mark.parametrize(

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 import json
+from pathlib import Path
 import sys
 from typing import Sequence
 
@@ -49,6 +50,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "classes": {name: asdict(uml_class) for name, uml_class in result.diagram.classes.items()},
                 "relationships": [asdict(relationship) for relationship in result.diagram.relationships],
                 "diagnostics": [asdict(diagnostic) for diagnostic in result.diagnostics],
+                "documents": [str(Path(source_file).resolve()) for source_file in result.source_files],
             }
         )
     )

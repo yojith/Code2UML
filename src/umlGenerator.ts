@@ -69,7 +69,7 @@ export async function generateUML(
       showPreview({
         tempDir,
         svgPath,
-        documents: paths,
+        documents: payload.documents,
         payload,
         save: async () => {
           const destination = await saveFile();

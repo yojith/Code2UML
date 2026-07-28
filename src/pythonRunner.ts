@@ -25,6 +25,7 @@ export interface SourceDiagnostic {
 
 export interface GenerationPayload {
   output: string;
+  documents: string[];
   classes: Record<string, SerializedClass>;
   relationships: SerializedRelationship[];
   diagnostics: SourceDiagnostic[];
@@ -182,6 +183,7 @@ export function parseGenerationPayload(stdout: string): GenerationPayload {
   }
   const payload = value as Record<string, unknown>;
   if (typeof payload.output !== "string"
+    || !Array.isArray(payload.documents) || !payload.documents.every((document) => typeof document === "string")
     || !isRecord(payload.classes) || !Object.values(payload.classes).every(isSerializedClass)
     || !Array.isArray(payload.relationships) || !payload.relationships.every(isRelationship)
     || !Array.isArray(payload.diagnostics) || !payload.diagnostics.every(isDiagnostic)) {
