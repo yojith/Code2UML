@@ -255,14 +255,27 @@ suite("Extension Test Suite", () => {
   });
 
   test("preview escapes diagnostics, restricts messages, and labels documents", () => {
-    const html = previewHtml("<svg></svg>", ["safe.py"], [
+    const documentPath = path.join(os.tmpdir(), "safe.py");
+    const html = previewHtml("<svg></svg>", [documentPath], [
       { path: "<bad>", line: 1, column: 2, severity: "error", message: "<script>alert(1)</script>" },
-    ]);
+    ], "vscode-webview-resource://codicons.css");
     assert.ok(!html.includes("<script>alert(1)</script>"));
     assert.ok(html.includes("&lt;script&gt;"));
     assert.ok(html.includes("Content-Security-Policy"));
     assert.ok(html.includes('class="preview-toolbar"'));
     assert.ok(html.includes('aria-label="Save UML diagram"'));
+    assert.ok(html.includes("vscode-webview-resource://codicons.css"));
+    assert.ok(html.includes("codicon-zoom-out"));
+    assert.ok(html.includes("codicon-screen-full"));
+    assert.ok(html.includes("codicon-zoom-in"));
+    assert.ok(html.includes("codicon-debug-restart"));
+    assert.ok(html.includes('aria-label="Zoom out"'));
+    assert.ok(html.includes('aria-label="Fit diagram to width"'));
+    assert.ok(html.includes('aria-label="Zoom in"'));
+    assert.ok(html.includes('aria-label="Reset zoom"'));
+    assert.ok(html.includes("ctrlKey"));
+    assert.ok(html.includes("wheel"));
+    assert.ok(html.includes(documentPath));
     assert.ok(html.includes("Analyzed documents"));
     assert.ok(html.includes("1 document"));
     assert.ok(html.includes("1 diagnostic"));

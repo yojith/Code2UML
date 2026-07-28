@@ -81,7 +81,7 @@ export async function generateUML(
           });
           vscode.window.showInformationMessage("UML diagram saved successfully!");
         },
-      });
+      }, context.extensionUri);
       tempDir = undefined;
     } catch (error) {
       vscode.window.showErrorMessage(
