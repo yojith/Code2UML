@@ -74,6 +74,18 @@ function Copy-DirectoryContents([string]$Source, [string]$Destination) {
     }
 }
 
+function Get-Sha256([string]$Path) {
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        return ([BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $stream.Dispose()
+        $algorithm.Dispose()
+    }
+}
+
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ("python2uml-runtime-" + [guid]::NewGuid())
 $environmentNames = 'PATH', 'EXTENSION_GRAPHVIZ_DOT', 'PYTHONNOUSERSITE', 'PYTHONUNBUFFERED'
 $savedEnvironment = @{}
@@ -135,7 +147,9 @@ try {
 
     $installedStatus = Join-Path $vcpkgRoot 'installed\vcpkg\status'
     if (-not (Test-Path -LiteralPath $installedStatus -PathType Leaf)) { throw 'vcpkg installed-package status was not created.' }
-    Copy-Item -LiteralPath $installedStatus -Destination (Join-Path $vcpkgComplianceRoot 'installed\vcpkg\status') -Force
+    $complianceStatus = Join-Path $vcpkgComplianceRoot 'installed\vcpkg\status'
+    New-Directory (Split-Path -Parent $complianceStatus)
+    Copy-Item -LiteralPath $installedStatus -Destination $complianceStatus -Force
     Get-Content -LiteralPath $installedStatus | Where-Object { $_ -like 'Package: *' } | ForEach-Object { $_.Substring(9) } | Sort-Object -Unique | ForEach-Object {
         $port = Join-Path $vcpkgRoot (Join-Path 'ports' $_)
         if (-not (Test-Path -LiteralPath $port -PathType Container)) { throw "Installed package port was not found: $_" }
@@ -225,7 +239,7 @@ try {
     $manifestLines = New-Object System.Collections.Generic.List[string]
     Get-ChildItem -LiteralPath $graphvizRuntime -File -Recurse | Sort-Object FullName | ForEach-Object {
         $relativePath = $_.FullName.Substring($graphvizRuntime.Length + 1).Replace('\', '/')
-        $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        $hash = Get-Sha256 $_.FullName
         $manifestLines.Add("$hash  $relativePath")
     }
     Write-TextFile $graphvizManifestPath ($manifestLines -join [Environment]::NewLine)
