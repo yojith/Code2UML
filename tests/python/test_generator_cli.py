@@ -122,19 +122,23 @@ def test_cli_dispatches_all_project_languages(tmp_path, capsys, monkeypatch, lan
     assert payload["output"] == str(output)
 
 
-def test_cli_routes_drawio_output_without_graphviz(tmp_path, capsys):
+def test_cli_reports_drawio_layout_failure_on_stderr(tmp_path, capsys, monkeypatch):
     source = tmp_path / "model.py"
     source.write_text("class Model:\n    pass\n", encoding="utf-8")
     output = tmp_path / "preview.drawio"
+    error = "Graphviz draw.io layout failed: bundled Graphviz executable was not found."
+
+    def fail_layout(self, dot_source):
+        raise RuntimeError(error)
+
+    monkeypatch.setattr("python2uml.renderers.drawio_renderer.DrawioRenderer._run_layout", fail_layout)
 
     exit_code = main(["-t", "python", "-o", str(output), "-p", str(source)])
     captured = capsys.readouterr()
-    payload = json.loads(captured.out)
 
-    assert exit_code == 0
-    assert captured.err == ""
-    assert payload["output"] == str(output)
-    assert output.read_text(encoding="utf-8").startswith("<?xml")
+    assert exit_code != 0
+    assert captured.out == ""
+    assert captured.err == f"{error}\n"
 
 
 def test_cli_serializes_relationship_enum_as_primitive_value(tmp_path, capsys, monkeypatch):
