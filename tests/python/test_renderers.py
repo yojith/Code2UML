@@ -292,19 +292,28 @@ def test_drawio_serializes_orthogonal_graphviz_route_without_endpoint_waypoints(
     layout = graphviz_layout_json(
         diagram,
         bb="0,0,400,400",
+        positions={"Source": "60,341", "Target": "140,159"},
         routes=["60,300 60,280 60,260 60,260 60,260 140,260 140,260 140,260 140,220 140,200"],
     )
 
     render_drawio_with_layout(diagram, output, layout)
 
-    edge = next(cell for cell in drawio_cells(output).values() if cell.get("edge") == "1")
+    cells = drawio_cells(output)
+    edge = next(cell for cell in cells.values() if cell.get("edge") == "1")
     geometry = edge.find("mxGeometry")
-    source = geometry.find("mxPoint[@as='sourcePoint']")
-    target = geometry.find("mxPoint[@as='targetPoint']")
     points = geometry.findall("Array[@as='points']/mxPoint")
+    style = dict(part.split("=", 1) for part in edge.get("style", "").split(";") if "=" in part)
+    effective_endpoints = []
+    for terminal, prefix in (("source", "exit"), ("target", "entry")):
+        terminal_geometry = cells[edge.get(terminal)].find("mxGeometry")
+        effective_endpoints.append(
+            (
+                float(terminal_geometry.get("x")) + float(terminal_geometry.get("width")) * float(style[f"{prefix}X"]),
+                float(terminal_geometry.get("y")) + float(terminal_geometry.get("height")) * float(style[f"{prefix}Y"]),
+            )
+        )
 
-    assert (float(source.get("x")), float(source.get("y"))) == (60, 100)
-    assert (float(target.get("x")), float(target.get("y"))) == (140, 200)
+    assert effective_endpoints == [(60, 100), (140, 200)]
     assert [(float(point.get("x")), float(point.get("y"))) for point in points] == [(60, 140), (140, 140)]
 
 
@@ -323,19 +332,39 @@ def test_drawio_keeps_parallel_routes_separate_and_serializes_self_loops(tmp_pat
         bb="0,0,276,362",
         positions={"A": "138,321", "B": "138,181"},
         routes=[
-            "198,279.75 198,268.62 198,256.32 198,244.28",
-            "138,279.75 138,268.62 138,256.32 138,244.28",
-            "78,244.42 78,254.67 78,262 78,262 78,262 0,262 0,262 0,262 0,100 0,100 0,100 98,100 98,100 98,100 98,107.33 98,117.58",
+            "198,280 198,222",
+            "138,280 138,222",
+            "18,182 0,182 0,102 98,102 98,140",
         ],
     )
 
     render_drawio_with_layout(diagram, output, layout)
 
-    edges = [drawio_cells(output)[f"edge-{index}"] for index in range(1, 4)]
-    source_points = [edge.find("mxGeometry/mxPoint[@as='sourcePoint']") for edge in edges]
-    assert [float(point.get("x")) for point in source_points[:2]] == [198, 138]
+    cells = drawio_cells(output)
+    edges = [cells[f"edge-{index}"] for index in range(1, 4)]
+    for edge in edges:
+        geometry = edge.find("mxGeometry")
+        assert geometry.find("mxPoint[@as='sourcePoint']") is None
+        assert geometry.find("mxPoint[@as='targetPoint']") is None
+
+    effective_endpoints = []
+    for edge in edges[:2]:
+        style = dict(part.split("=", 1) for part in edge.get("style", "").split(";") if "=" in part)
+        endpoints = []
+        for terminal, prefix in (("source", "exit"), ("target", "entry")):
+            geometry = cells[edge.get(terminal)].find("mxGeometry")
+            endpoints.append(
+                (
+                    float(geometry.get("x")) + float(geometry.get("width")) * float(style[f"{prefix}X"]),
+                    float(geometry.get("y")) + float(geometry.get("height")) * float(style[f"{prefix}Y"]),
+                )
+            )
+        effective_endpoints.append(endpoints)
+
+    assert effective_endpoints == [[(198, 82), (198, 140)], [(138, 82), (138, 140)]]
+    assert all(not edge.findall("mxGeometry/Array[@as='points']/mxPoint") for edge in edges[:2])
     self_loop_points = edges[2].findall("mxGeometry/Array[@as='points']/mxPoint")
-    assert [(float(point.get("x")), float(point.get("y"))) for point in self_loop_points] == [(78, 100), (0, 100), (0, 262), (98, 262)]
+    assert [(float(point.get("x")), float(point.get("y"))) for point in self_loop_points] == [(0, 180), (0, 260), (98, 260)]
 
 
 def test_drawio_maps_special_class_names_only_through_internal_dot_ids(tmp_path: Path):

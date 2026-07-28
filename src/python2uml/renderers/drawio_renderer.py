@@ -112,12 +112,12 @@ class DrawioRenderer:
                     "target": class_ids.get(relationship.target, ""),
                     "edge": "1",
                     "parent": "1",
-                    "style": self._edge_style(relationship.relationship_type),
+                    "style": self._edge_style(relationship.relationship_type)
+                    + self._connection_style("exit", route.source, layout.nodes[relationship.source])
+                    + self._connection_style("entry", route.target, layout.nodes[relationship.target]),
                 },
             )
             geometry = ET.SubElement(edge, "mxGeometry", {"relative": "1", "as": "geometry"})
-            self._point(geometry, route.source, "sourcePoint")
-            self._point(geometry, route.target, "targetPoint")
             if route.points:
                 points = ET.SubElement(geometry, "Array", {"as": "points"})
                 for point in route.points:
@@ -315,6 +315,12 @@ class DrawioRenderer:
         if isclose(value, 0, abs_tol=5e-7):
             value = 0
         return f"{value:.6f}".rstrip("0").rstrip(".")
+
+    def _connection_style(self, prefix: str, point: Point, rectangle: Rectangle) -> str:
+        x, y, width, height = rectangle
+        relative_x = min(1.0, max(0.0, (point[0] - x) / width))
+        relative_y = min(1.0, max(0.0, (point[1] - y) / height))
+        return f"{prefix}X={self._number(relative_x)};{prefix}Y={self._number(relative_y)};{prefix}Dx=0;{prefix}Dy=0;{prefix}Perimeter=0;"
 
     def _edge_style(self, relationship_type: RelationshipType) -> str:
         return (
