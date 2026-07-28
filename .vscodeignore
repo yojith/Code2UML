@@ -32,6 +32,7 @@ tsconfig.json
 .vscode-test.mjs
 **/.DS_Store
 build/**
+runtime-downloads/**
 !python-runtime/**
 !graphviz/**
 !licenses/**

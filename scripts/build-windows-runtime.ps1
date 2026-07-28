@@ -53,7 +53,7 @@ function Remove-GeneratedDirectory([string]$Path) {
 
 function Get-VerifiedDownload([string]$Uri, [string]$Sha256, [string]$Destination) {
     Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Destination
-    $actual = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actual = Get-Sha256 $Destination
     if ($actual -ne $Sha256) {
         throw "Checksum mismatch for $Uri. Expected $Sha256; got $actual."
     }
@@ -71,6 +71,18 @@ function Copy-DirectoryContents([string]$Source, [string]$Destination) {
     New-Directory $Destination
     Get-ChildItem -LiteralPath $Source -Force | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination $Destination -Recurse -Force
+    }
+}
+
+function Get-Sha256([string]$Path) {
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        return ([BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $stream.Dispose()
+        $algorithm.Dispose()
     }
 }
 
@@ -97,7 +109,6 @@ try {
     $pythonArchive = Join-Path $temporary 'python.zip'
     $requirements = Join-Path $temporary 'requirements.txt'
     $graphvizCompliancePortRoot = Join-Path $vcpkgComplianceRoot 'ports\graphviz'
-    $graphvizComplianceDownloadsRoot = Join-Path $vcpkgComplianceRoot 'downloads'
     $graphvizComplianceCommitPath = Join-Path $vcpkgComplianceRoot 'commit.txt'
     $graphvizComplianceProvenancePath = Join-Path $vcpkgComplianceRoot 'provenance.json'
     $graphvizManifestPath = Join-Path $licenses 'graphviz\shipped-dlls.sha256'
@@ -135,14 +146,13 @@ try {
 
     $installedStatus = Join-Path $vcpkgRoot 'installed\vcpkg\status'
     if (-not (Test-Path -LiteralPath $installedStatus -PathType Leaf)) { throw 'vcpkg installed-package status was not created.' }
-    Copy-Item -LiteralPath $installedStatus -Destination (Join-Path $vcpkgComplianceRoot 'installed\vcpkg\status') -Force
+    $complianceStatus = Join-Path $vcpkgComplianceRoot 'installed\vcpkg\status'
+    New-Directory (Split-Path -Parent $complianceStatus)
+    Copy-Item -LiteralPath $installedStatus -Destination $complianceStatus -Force
     Get-Content -LiteralPath $installedStatus | Where-Object { $_ -like 'Package: *' } | ForEach-Object { $_.Substring(9) } | Sort-Object -Unique | ForEach-Object {
         $port = Join-Path $vcpkgRoot (Join-Path 'ports' $_)
         if (-not (Test-Path -LiteralPath $port -PathType Container)) { throw "Installed package port was not found: $_" }
         Copy-DirectoryContents $port (Join-Path $vcpkgComplianceRoot (Join-Path 'ports' $_))
-    }
-    if (Test-Path -LiteralPath (Join-Path $vcpkgRoot 'downloads')) {
-        Copy-DirectoryContents (Join-Path $vcpkgRoot 'downloads') $graphvizComplianceDownloadsRoot
     }
     Write-TextFile $graphvizComplianceCommitPath $vcpkgCommit
     $provenance = [ordered]@{
@@ -150,7 +160,6 @@ try {
         graphvizFeature  = 'tools'
         triplet          = 'x64-windows'
         graphvizPortRoot = 'ports/graphviz'
-        downloadsRoot    = 'downloads'
         runtimeManifest  = 'licenses/graphviz/shipped-dlls.sha256'
     }
     Write-TextFile $graphvizComplianceProvenancePath ($provenance | ConvertTo-Json -Depth 5)
@@ -169,6 +178,15 @@ try {
         $source = Join-Path $installedRoot $relative
         if (Test-Path -LiteralPath $source) {
             Copy-DirectoryContents $source (Join-Path $graphvizRuntime $relative)
+        }
+    }
+    Get-ChildItem -LiteralPath $graphvizRuntime -File -Recurse -Filter '*.pdb' | Remove-Item -Force
+    Get-ChildItem -LiteralPath (Join-Path $graphvizRuntime 'bin') -File -Filter '*.exe' | Where-Object { $_.Name -ne 'dot.exe' } | Remove-Item -Force
+    Get-ChildItem -LiteralPath $graphvizRuntime -File -Recurse | Where-Object { $_.Extension -in '.lib', '.pc' } | Remove-Item -Force
+    foreach ($relative in @('share\doc', 'share\man', 'share\aclocal', 'share\bash-completion', 'share\vcpkg-cmake', 'share\vcpkg-cmake-config', 'share\vcpkg-make', 'share\vcpkg-tool-meson')) {
+        $optional = Join-Path $graphvizRuntime $relative
+        if (Test-Path -LiteralPath $optional) {
+            Remove-Item -LiteralPath $optional -Recurse -Force
         }
     }
 
@@ -220,12 +238,16 @@ try {
     }
 
     New-Directory (Join-Path $graphvizLicenseRoot 'vcpkg')
-    Copy-DirectoryContents $vcpkgComplianceRoot (Join-Path $graphvizLicenseRoot 'vcpkg')
+    Copy-DirectoryContents (Join-Path $vcpkgComplianceRoot 'ports') (Join-Path $graphvizLicenseRoot 'vcpkg\ports')
+    New-Directory (Join-Path $graphvizLicenseRoot 'vcpkg\installed\vcpkg')
+    Copy-Item -LiteralPath $complianceStatus -Destination (Join-Path $graphvizLicenseRoot 'vcpkg\installed\vcpkg\status') -Force
+    Copy-Item -LiteralPath $graphvizComplianceCommitPath -Destination (Join-Path $graphvizLicenseRoot 'vcpkg\commit.txt') -Force
+    Copy-Item -LiteralPath $graphvizComplianceProvenancePath -Destination (Join-Path $graphvizLicenseRoot 'vcpkg\provenance.json') -Force
 
     $manifestLines = New-Object System.Collections.Generic.List[string]
     Get-ChildItem -LiteralPath $graphvizRuntime -File -Recurse | Sort-Object FullName | ForEach-Object {
         $relativePath = $_.FullName.Substring($graphvizRuntime.Length + 1).Replace('\', '/')
-        $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        $hash = Get-Sha256 $_.FullName
         $manifestLines.Add("$hash  $relativePath")
     }
     Write-TextFile $graphvizManifestPath ($manifestLines -join [Environment]::NewLine)
