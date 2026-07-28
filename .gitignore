@@ -15,6 +15,7 @@
 /.env
 /AGENTS.md
 /.superpowers/
+/docs/superpowers
 /test.png
 /test.svg
 /uml_diagram.*
