@@ -1,0 +1,64 @@
+diff --git a/lib/util/arena.h b/lib/util/arena.h
+index d702cf7..a61e682 100644
+--- a/lib/util/arena.h
++++ b/lib/util/arena.h
+@@ -7,7 +7,11 @@
+ 
+ #pragma once
+ 
++#ifdef _MSC_VER
++#define alignof _Alignof
++#else
+ #include <stdalign.h>
++#endif
+ #include <stddef.h>
+ #include <util/api.h>
+ 
+diff --git a/lib/expr/exeval.c b/lib/expr/exeval.c
+index bdd95a3..4b6a9f8 100644
+--- a/lib/expr/exeval.c
++++ b/lib/expr/exeval.c
+@@ -22,7 +22,11 @@
+ #include <inttypes.h>
+ #include <limits.h>
+ #include <math.h>
++#ifdef _MSC_VER
++#define alignof _Alignof
++#else
+ #include <stdalign.h>
++#endif
+ #include <stdbool.h>
+ #include <stddef.h>
+ #include <stdint.h>
+diff --git a/lib/expr/extoken.c b/lib/expr/extoken.c
+index 9e3ad64..dbd6d5e 100644
+--- a/lib/expr/extoken.c
++++ b/lib/expr/extoken.c
+@@ -17,7 +17,11 @@
+ 
+ #include "config.h"
+ #include <expr/exlib.h>
++#ifdef _MSC_VER
++#define alignof _Alignof
++#else
+ #include <stdalign.h>
++#endif
+ #include <stdbool.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+diff --git a/lib/expr/exparse.y b/lib/expr/exparse.y
+index 90e21ca..c85a6f2 100644
+--- a/lib/expr/exparse.y
++++ b/lib/expr/exparse.y
+@@ -27,7 +27,11 @@
+ 
+ #include <assert.h>
+ #include <expr/exop.h>
++#ifdef _MSC_VER
++#define alignof _Alignof
++#else
+ #include <stdalign.h>
++#endif
+ #include <stdbool.h>
+ #include <stdio.h>
+ #include <stdlib.h>

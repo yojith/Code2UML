@@ -3,6 +3,7 @@
 /node_modules/
 /.vscode-test/
 /*.vsix
+/*.drawio
 /.venv/
 **/__pycache__/
 **/.pytest_cache/

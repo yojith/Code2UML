@@ -8,6 +8,8 @@ Python is parsed with the standard-library `ast` module. Java, C++, and C use th
 
 The Marketplace extension requires a Windows x64 extension host. It bundles its own Python runtime and Graphviz, so no separate Python, virtual environment, pip installation, or Graphviz installation is needed.
 
+The bundled Graphviz runtime depends on the Microsoft VC++ 2015–2022 Redistributable x64 runtime. Install the official Microsoft x64 redistributable before using the packaged extension if Windows reports that a VC++ runtime DLL is missing.
+
 WSL, remote extension hosts (including SSH and dev containers), Windows ARM64, Linux, and macOS are not supported.
 
 Source CLI development requires Python 3.11 or newer. Graphviz-backed output also requires [Graphviz](https://graphviz.org/download/) with `dot.exe` on `PATH` and `EXTENSION_GRAPHVIZ_DOT` set to its absolute path; draw.io output does not. Install the project and test tools from `pyproject.toml`:
