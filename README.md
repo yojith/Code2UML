@@ -52,7 +52,7 @@ uvx --from "C:\path\to\python2uml" python2uml --project-type java --output diagr
 
 uv is optional for ordinary source CLI invocation, required only when assembling the extension runtime, and not required by Marketplace users.
 
-Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML using the same Graphviz layout engine and fails with its availability or geometry error when Graphviz cannot provide a layout. A successful run writes one JSON object to stdout containing `output`, `classes`, `relationships`, and `diagnostics`. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
+Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML using the same Graphviz layout engine and fails with its availability or geometry error when Graphviz cannot provide a layout. A successful run writes one JSON object to stdout containing `output`, `documents`, `classes`, `relationships`, and `diagnostics`; `documents` lists the absolute source-file paths actually analyzed in deterministic collection order. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
 
 ## Model behavior and limits
 
