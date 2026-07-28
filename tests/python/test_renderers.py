@@ -1,4 +1,6 @@
+import json
 from pathlib import Path
+import subprocess
 from unittest.mock import patch
 
 import xml.etree.ElementTree as ET
@@ -13,6 +15,9 @@ from python2uml.model.uml_method import UMLMethod
 from python2uml.model.uml_relationship import UMLRelationship
 from python2uml.renderers.drawio_renderer import DrawioRenderer
 from python2uml.renderers.graphviz_renderer import GraphvizRenderer, get_dot_executable
+
+
+BUNDLED_DOT = Path("C:/python2uml/graphviz/bin/dot.exe")
 
 
 def diagram_with_every_style() -> UMLDiagram:
@@ -30,6 +35,69 @@ def diagram_with_every_style() -> UMLDiagram:
 
 def drawio_cells(path: Path) -> dict[str, ET.Element]:
     return {cell.get("id"): cell for cell in ET.parse(path).getroot().findall(".//mxCell")}
+
+
+def graphviz_layout_json(
+    diagram: UMLDiagram,
+    *,
+    bb: str = "0,0,1200,1200",
+    positions: dict[str, str] | None = None,
+    routes: list[str] | None = None,
+) -> dict[str, object]:
+    names = sorted(diagram.classes)
+    node_indexes = {name: index for index, name in enumerate(names)}
+    positions = positions or {name: f"{160 + index * 260},{1100 - index * 140}" for index, name in enumerate(names)}
+    routes = routes or [f"{80 + index * 20},900 {80 + index * 20},800" for index in range(len(diagram.relationships))]
+    renderer = DrawioRenderer()
+    return {
+        "name": "drawio_layout",
+        "directed": True,
+        "strict": False,
+        "_draw_": [],
+        "bb": bb,
+        "xdotversion": "1.7",
+        "_subgraph_cnt": 0,
+        "objects": [
+            {
+                "_gvid": index,
+                "name": f"node_{index + 1}",
+                "_draw_": [],
+                "_ldraw_": [],
+                "fixedsize": "true",
+                "height": f"{renderer._class_height(diagram.classes[name]) / 72:.4f}",
+                "label": f"node_{index + 1}",
+                "pos": positions[name],
+                "shape": "box",
+                "width": f"{240 / 72:.4f}",
+            }
+            for index, name in enumerate(names)
+        ],
+        "edges": [
+            {
+                "_gvid": index,
+                "tail": node_indexes[relationship.source],
+                "head": node_indexes[relationship.target],
+                "_draw_": [],
+                "dir": "none",
+                "pos": routes[index],
+            }
+            for index, relationship in enumerate(diagram.relationships)
+        ],
+    }
+
+
+def graphviz_result(layout: dict[str, object] | str) -> subprocess.CompletedProcess[str]:
+    stdout = layout if isinstance(layout, str) else json.dumps(layout)
+    return subprocess.CompletedProcess([str(BUNDLED_DOT), "-Tjson"], 0, stdout, "")
+
+
+def render_drawio_with_layout(diagram: UMLDiagram, output: Path, layout: dict[str, object] | None = None):
+    with (
+        patch("python2uml.renderers.drawio_renderer.get_dot_executable", return_value=BUNDLED_DOT),
+        patch("python2uml.renderers.drawio_renderer.subprocess.run", return_value=graphviz_result(layout or graphviz_layout_json(diagram))) as run,
+    ):
+        DrawioRenderer().render(diagram, str(output))
+    return run
 
 
 def test_graphviz_requires_bundled_dot(monkeypatch, tmp_path: Path):
@@ -84,8 +152,9 @@ def test_graphviz_source_maps_every_class_kind_and_relationship_style():
 
 def test_drawio_xml_maps_every_class_kind_and_relationship_style(tmp_path: Path):
     output = tmp_path / "diagram.drawio"
+    diagram = diagram_with_every_style()
 
-    DrawioRenderer().render(diagram_with_every_style(), str(output))
+    render_drawio_with_layout(diagram, output)
 
     cells = drawio_cells(output)
     classes = [cell for cell in cells.values() if cell.get("vertex") == "1" and cell.get("parent") == "1"]
@@ -129,7 +198,8 @@ def test_drawio_xml_uses_escaped_uml_compartments_without_literal_newlines(tmp_p
         methods=[UMLMethod("find<&>", ["id: Map<K, V>&"], "Order<&>"), UMLMethod("save", ["order: Order"])],
     )
 
-    DrawioRenderer().render(UMLDiagram(classes={uml_class.name: uml_class}), str(output))
+    diagram = UMLDiagram(classes={uml_class.name: uml_class})
+    render_drawio_with_layout(diagram, output)
 
     cells = drawio_cells(output)
     parent = next(cell for cell in cells.values() if cell.get("vertex") == "1" and cell.get("parent") == "1")
@@ -150,7 +220,8 @@ def test_drawio_xml_escapes_titles_and_grows_for_compartments(tmp_path: Path):
         methods=[UMLMethod("find", ["id: int"], "Order")],
     )
 
-    DrawioRenderer().render(UMLDiagram(classes={uml_class.name: uml_class}), str(output))
+    diagram = UMLDiagram(classes={uml_class.name: uml_class})
+    render_drawio_with_layout(diagram, output)
 
     parent = next(cell for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1")
     assert "Box&lt;T&gt;&amp;" in parent.get("value", "")
@@ -162,43 +233,157 @@ def test_drawio_xml_is_deterministic(tmp_path: Path):
     first = tmp_path / "first.drawio"
     second = tmp_path / "second.drawio"
 
-    DrawioRenderer().render(diagram, str(first))
-    DrawioRenderer().render(diagram, str(second))
+    render_drawio_with_layout(diagram, first)
+    render_drawio_with_layout(diagram, second)
 
     assert first.read_bytes() == second.read_bytes()
 
 
-def test_drawio_xml_places_hierarchy_parents_above_children(tmp_path: Path):
-    classes = {name: UMLClass(name) for name in ("Base", "Contract", "Child")}
+def test_drawio_uses_graphviz_node_rectangles_and_real_class_dimensions(tmp_path: Path):
+    short = UMLClass("Short")
+    tall = UMLClass("Tall", attributes=[UMLAttribute(f"field_{index}") for index in range(3)])
+    diagram = UMLDiagram(classes={tall.name: tall, short.name: short})
+    output = tmp_path / "diagram.drawio"
+    layout = graphviz_layout_json(diagram, bb="0,0,600,400", positions={"Short": "180,300", "Tall": "360,150"})
+
+    run = render_drawio_with_layout(diagram, output, layout)
+
+    geometry_by_title = {cell.get("value"): cell.find("mxGeometry") for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1"}
+    assert {key: float(value) for key, value in geometry_by_title["Short"].items() if key in {"x", "y", "width", "height"}} == {"x": 60, "y": 59, "width": 240, "height": 82}
+    assert {key: float(value) for key, value in geometry_by_title["Tall"].items() if key in {"x", "y", "width", "height"}} == {"x": 240, "y": 187, "width": 240, "height": 126}
+
+    dot_source = run.call_args.kwargs["input"]
+    assert "node_1 [shape=box, fixedsize=true, width=3.333333, height=1.138889];" in dot_source
+    assert "node_2 [shape=box, fixedsize=true, width=3.333333, height=1.750000];" in dot_source
+    run.assert_called_once_with([str(BUNDLED_DOT), "-Tjson"], input=dot_source, text=True, capture_output=True, check=True)
+
+
+def test_drawio_layout_edges_ignore_relationship_type_but_xml_styles_do_not(tmp_path: Path):
+    dot_sources = []
+    expected_styles = {
+        RelationshipType.INHERITANCE: "endArrow=block;endFill=0;",
+        RelationshipType.IMPLEMENTATION: "endArrow=block;endFill=0;dashed=1;",
+        RelationshipType.ASSOCIATION: "endArrow=open;",
+        RelationshipType.AGGREGATION: "startArrow=diamond;startFill=0;endArrow=none;",
+        RelationshipType.COMPOSITION: "startArrow=diamond;startFill=1;endArrow=none;",
+    }
+    for relationship_type in RelationshipType:
+        diagram = UMLDiagram(
+            classes={name: UMLClass(name) for name in ("Source", "Target")},
+            relationships=[UMLRelationship("Source", "Target", relationship_type)],
+        )
+        output = tmp_path / f"{relationship_type.value}.drawio"
+
+        run = render_drawio_with_layout(diagram, output)
+
+        dot_sources.append(run.call_args.kwargs["input"])
+        edge = next(cell for cell in drawio_cells(output).values() if cell.get("edge") == "1")
+        assert expected_styles[relationship_type] in edge.get("style", "")
+
+    assert len(set(dot_sources)) == 1
+
+
+def test_drawio_serializes_orthogonal_graphviz_route_without_endpoint_waypoints(tmp_path: Path):
     diagram = UMLDiagram(
-        classes=classes,
-        relationships=[
-            UMLRelationship("Child", "Base", RelationshipType.INHERITANCE),
-            UMLRelationship("Child", "Contract", RelationshipType.IMPLEMENTATION),
-        ],
+        classes={name: UMLClass(name) for name in ("Source", "Target")},
+        relationships=[UMLRelationship("Source", "Target", RelationshipType.ASSOCIATION)],
     )
     output = tmp_path / "diagram.drawio"
+    layout = graphviz_layout_json(
+        diagram,
+        bb="0,0,400,400",
+        routes=["60,300 60,280 60,260 60,260 60,260 140,260 140,260 140,260 140,220 140,200"],
+    )
 
-    DrawioRenderer().render(diagram, str(output))
+    render_drawio_with_layout(diagram, output, layout)
 
-    y_by_title = {cell.get("value"): float(cell.find("mxGeometry").get("y")) for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1"}
-    assert y_by_title["Base"] < y_by_title["Child"]
-    assert y_by_title["Contract"] < y_by_title["Child"]
+    edge = next(cell for cell in drawio_cells(output).values() if cell.get("edge") == "1")
+    geometry = edge.find("mxGeometry")
+    source = geometry.find("mxPoint[@as='sourcePoint']")
+    target = geometry.find("mxPoint[@as='targetPoint']")
+    points = geometry.findall("Array[@as='points']/mxPoint")
+
+    assert (float(source.get("x")), float(source.get("y"))) == (60, 100)
+    assert (float(target.get("x")), float(target.get("y"))) == (140, 200)
+    assert [(float(point.get("x")), float(point.get("y"))) for point in points] == [(60, 140), (140, 140)]
 
 
-def test_drawio_xml_places_inheritance_cycles_at_the_same_fallback_rank(tmp_path: Path):
+def test_drawio_keeps_parallel_routes_separate_and_serializes_self_loops(tmp_path: Path):
     diagram = UMLDiagram(
         classes={name: UMLClass(name) for name in ("A", "B")},
         relationships=[
-            UMLRelationship("A", "B", RelationshipType.INHERITANCE),
-            UMLRelationship("B", "A", RelationshipType.IMPLEMENTATION),
+            UMLRelationship("A", "B", RelationshipType.ASSOCIATION),
+            UMLRelationship("A", "B", RelationshipType.COMPOSITION),
+            UMLRelationship("B", "B", RelationshipType.AGGREGATION),
         ],
     )
-    renderer = DrawioRenderer()
+    output = tmp_path / "diagram.drawio"
+    layout = graphviz_layout_json(
+        diagram,
+        bb="0,0,276,362",
+        positions={"A": "138,321", "B": "138,181"},
+        routes=[
+            "198,279.75 198,268.62 198,256.32 198,244.28",
+            "138,279.75 138,268.62 138,256.32 138,244.28",
+            "78,244.42 78,254.67 78,262 78,262 78,262 0,262 0,262 0,262 0,100 0,100 0,100 98,100 98,100 98,100 98,107.33 98,117.58",
+        ],
+    )
+
+    render_drawio_with_layout(diagram, output, layout)
+
+    edges = [drawio_cells(output)[f"edge-{index}"] for index in range(1, 4)]
+    source_points = [edge.find("mxGeometry/mxPoint[@as='sourcePoint']") for edge in edges]
+    assert [float(point.get("x")) for point in source_points[:2]] == [198, 138]
+    self_loop_points = edges[2].findall("mxGeometry/Array[@as='points']/mxPoint")
+    assert [(float(point.get("x")), float(point.get("y"))) for point in self_loop_points] == [(78, 100), (0, 100), (0, 262), (98, 262)]
+
+
+def test_drawio_maps_special_class_names_only_through_internal_dot_ids(tmp_path: Path):
+    first = 'Box <T> & "quoted"'
+    second = "namespace::Thing"
+    diagram = UMLDiagram(
+        classes={second: UMLClass(second), first: UMLClass(first)},
+        relationships=[UMLRelationship(first, second, RelationshipType.ASSOCIATION)],
+    )
     output = tmp_path / "diagram.drawio"
 
-    assert renderer._hierarchy_ranks(diagram) == {"A": 0, "B": 0}
-    renderer.render(diagram, str(output))
+    run = render_drawio_with_layout(diagram, output)
 
-    y_by_title = {cell.get("value"): float(cell.find("mxGeometry").get("y")) for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1"}
-    assert y_by_title["A"] == y_by_title["B"]
+    dot_source = run.call_args.kwargs["input"]
+    assert first not in dot_source
+    assert second not in dot_source
+    assert "node_1 -> node_2;" in dot_source
+    titles = {cell.get("value") for cell in drawio_cells(output).values() if cell.get("vertex") == "1" and cell.get("parent") == "1"}
+    assert titles == {"Box &lt;T&gt; &amp; &quot;quoted&quot;", second}
+
+
+@pytest.mark.parametrize(
+    ("case", "message"),
+    [
+        ("malformed_json", "Graphviz.*JSON"),
+        ("missing_node", "Graphviz.*node"),
+        ("reversed_bounds", "Graphviz.*bounding box"),
+        ("diagonal_route", "Graphviz.*route"),
+    ],
+)
+def test_drawio_rejects_unusable_graphviz_json_geometry(tmp_path: Path, case: str, message: str):
+    diagram = UMLDiagram(
+        classes={name: UMLClass(name) for name in ("A", "B")},
+        relationships=[UMLRelationship("A", "B", RelationshipType.ASSOCIATION)],
+    )
+    layout: dict[str, object] | str = graphviz_layout_json(diagram)
+    if case == "malformed_json":
+        layout = "{not JSON"
+    elif case == "missing_node":
+        layout["objects"] = layout["objects"][:1]
+    elif case == "reversed_bounds":
+        layout["bb"] = "0,400,400,0"
+    else:
+        layout["edges"][0]["pos"] = "10,10 20,20"
+
+    with (
+        patch("python2uml.renderers.drawio_renderer.get_dot_executable", return_value=BUNDLED_DOT),
+        patch("python2uml.renderers.drawio_renderer.subprocess.run", return_value=graphviz_result(layout)),
+        pytest.raises(RuntimeError, match=message),
+    ):
+        DrawioRenderer().render(diagram, str(tmp_path / "diagram.drawio"))
