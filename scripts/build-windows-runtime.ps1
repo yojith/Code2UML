@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$BuildPython,
+    [string]$VcpkgDownloadsRoot,
     [ValidateRange(1, 64)][int]$VcpkgMaxConcurrency = 4
 )
 
@@ -22,6 +23,7 @@ $licenses = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'licenses'))
 $allowedGeneratedPaths = $pythonRuntime, $graphvizRuntime, $licenses
 $vcpkgRoot = Join-Path $repositoryRoot 'runtime-downloads\vcpkg'
 $vcpkgComplianceRoot = Join-Path $repositoryRoot 'runtime-downloads\vcpkg-compliance'
+$VcpkgDownloadsRoot = if ($VcpkgDownloadsRoot) { [IO.Path]::GetFullPath($VcpkgDownloadsRoot) } else { Join-Path $repositoryRoot 'runtime-downloads\vcpkg-downloads' }
 $graphvizMsvcPatch = Join-Path $PSScriptRoot 'graphviz-msvc-stdalign.diff'
 
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or $env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
@@ -109,6 +111,7 @@ try {
     New-Directory $graphvizRuntime
     New-Directory (Join-Path $licenses 'python')
     New-Directory $vcpkgComplianceRoot
+    New-Directory $VcpkgDownloadsRoot
 
     $pythonArchive = Join-Path $temporary 'python.zip'
     $requirements = Join-Path $temporary 'requirements.txt'
@@ -144,7 +147,7 @@ try {
     & (Join-Path $vcpkgRoot 'bootstrap-vcpkg.bat')
     if ($LASTEXITCODE -ne 0) { throw 'vcpkg bootstrap failed.' }
 
-    & (Join-Path $vcpkgRoot 'vcpkg.exe') install 'graphviz[tools]:x64-windows' --triplet x64-windows --disable-metrics --no-binarycaching
+    & (Join-Path $vcpkgRoot 'vcpkg.exe') install 'graphviz[tools]:x64-windows' --triplet x64-windows --downloads-root=$VcpkgDownloadsRoot --disable-metrics --no-binarycaching
     if ($LASTEXITCODE -ne 0) { throw 'vcpkg Graphviz build failed.' }
 
     $installedStatus = Join-Path $vcpkgRoot 'installed\vcpkg\status'
@@ -158,7 +161,7 @@ try {
         if (-not (Test-Path -LiteralPath $port -PathType Container)) { throw "Installed package port was not found: $_" }
         Copy-DirectoryContents $port (Join-Path $vcpkgComplianceRoot (Join-Path 'ports' $_))
     }
-    $downloadsRoot = Join-Path $vcpkgRoot 'downloads'
+    $downloadsRoot = $VcpkgDownloadsRoot
     if (-not (Test-Path -LiteralPath $downloadsRoot -PathType Container)) { throw 'vcpkg source downloads were not created.' }
     $sourceDownloads = @(Get-ChildItem -LiteralPath $downloadsRoot -File)
     if ($sourceDownloads.Count -eq 0) { throw 'vcpkg source download archives were not created.' }

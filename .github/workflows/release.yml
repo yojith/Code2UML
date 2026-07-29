@@ -18,11 +18,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24.x"
+          cache: npm
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           architecture: x64
       - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
       - run: npm ci
       - run: uv sync --extra dev --frozen
       - run: uv run --frozen --extra dev python -m black --check src/python2uml tests/python
@@ -30,6 +33,11 @@ jobs:
       - run: npm run compile
       - run: npm run lint
       - run: npm test
+      - name: Restore vcpkg source downloads
+        uses: actions/cache@v4
+        with:
+          path: runtime-downloads/vcpkg-downloads
+          key: vcpkg-downloads-windows-x64-v1-${{ hashFiles('scripts/build-windows-runtime.ps1', 'scripts/graphviz-msvc-stdalign.diff') }}
       - run: npm run build:runtime:win32-x64
       - name: Smoke test bundled draw.io layout
         shell: pwsh
