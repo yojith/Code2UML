@@ -19,6 +19,7 @@ from python2uml.renderers.graphviz_renderer import GraphvizRenderer
 class AnalysisResult:
     diagram: UMLDiagram
     diagnostics: list[SourceDiagnostic]
+    source_files: list[str]
 
 
 class UMLGenerator:
@@ -43,7 +44,7 @@ class UMLGenerator:
         self.relationship_analyzer.analyze(documents, diagram)
         if not diagram.classes:
             raise RuntimeError("No UML classes could be analyzed from the selected source files.")
-        return AnalysisResult(diagram, [diagnostic for document in documents for diagnostic in document.diagnostics])
+        return AnalysisResult(diagram, [diagnostic for document in documents for diagnostic in document.diagnostics], filepaths)
 
     def generate(self, project_type: ProjectLanguage, output: str, *paths: str) -> AnalysisResult:
         result = self.analyze(project_type, *paths)

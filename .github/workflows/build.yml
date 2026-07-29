@@ -3,8 +3,7 @@ name: Build extension artifact
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,19 +13,30 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24.x"
+          cache: npm
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           architecture: x64
       - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
       - run: npm ci
-      - run: uv sync --extra dev --frozen
-      - run: uv run --frozen --extra dev python -m black --check src/python2uml tests/python
-      - run: uv run --frozen --extra dev python -m pytest -v
-      - run: npm run compile
-      - run: npm run lint
-      - run: npm test
+      - run: uv sync --frozen
+      - name: Restore vcpkg source downloads
+        uses: actions/cache@v4
+        with:
+          path: runtime-downloads/vcpkg-downloads
+          key: vcpkg-downloads-windows-x64-v1-${{ hashFiles('scripts/build-windows-runtime.ps1', 'scripts/graphviz-msvc-stdalign.diff') }}
       - run: npm run build:runtime:win32-x64
+      - name: Smoke test bundled draw.io layout
+        shell: pwsh
+        run: |
+          $env:EXTENSION_GRAPHVIZ_DOT = (Resolve-Path graphviz\bin\dot.exe)
+          $env:PATH = "$(Split-Path $env:EXTENSION_GRAPHVIZ_DOT);$env:PATH"
+          $env:PYTHONDONTWRITEBYTECODE = "1"
+          & .\python-runtime\python.exe -m python2uml -t python -o smoke.drawio -p tests\fixtures\python\project1
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path smoke.drawio)) { throw 'Bundled draw.io layout smoke test failed.' }
       - run: npm run package -- --target win32-x64 --out python2uml-win32-x64-${{ github.sha }}.vsix
       - name: Inspect VSIX
         shell: pwsh

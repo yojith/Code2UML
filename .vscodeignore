@@ -1,5 +1,6 @@
 .vscode/**
 .vscode-test/**
+.test-tmp*/**
 .github/**
 .git/**
 .superpowers/**
@@ -32,7 +33,9 @@ tsconfig.json
 .vscode-test.mjs
 **/.DS_Store
 build/**
+runtime-downloads/**
 !python-runtime/**
 !graphviz/**
 !licenses/**
+!third-party-source-provenance/**
 !THIRD_PARTY_NOTICES.md

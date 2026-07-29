@@ -69,7 +69,7 @@ export async function generateUML(
       showPreview({
         tempDir,
         svgPath,
-        documents: paths,
+        documents: payload.documents,
         payload,
         save: async () => {
           const destination = await saveFile();
@@ -81,7 +81,7 @@ export async function generateUML(
           });
           vscode.window.showInformationMessage("UML diagram saved successfully!");
         },
-      });
+      }, context.extensionUri);
       tempDir = undefined;
     } catch (error) {
       vscode.window.showErrorMessage(

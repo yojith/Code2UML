@@ -26,8 +26,12 @@ export function previewHtml(
   svg: string,
   documents: string[],
   diagnostics: SourceDiagnostic[],
+  codiconCssUri: string,
+  cspSource: string,
 ): string {
   const nonce = randomBytes(16).toString("hex");
+  const escapedCodiconCssUri = escapeHtml(codiconCssUri);
+  const escapedCspSource = escapeHtml(cspSource);
   const documentItems = documents.map((document) => `<li>${escapeHtml(document)}</li>`).join("");
   const diagnosticItems = diagnostics.map((diagnostic) =>
     `<li>${escapeHtml(diagnostic.severity)}: ${escapeHtml(diagnostic.path)}:${escapeHtml(diagnostic.line)}:${escapeHtml(diagnostic.column)} - ${escapeHtml(diagnostic.message)}</li>`,
@@ -37,18 +41,24 @@ export function previewHtml(
   const diagnosticState = diagnostics.length === 0 ? "success" : diagnostics.some(({ severity }) => severity === "error") ? "error" : "warning";
   return `<!DOCTYPE html>
 <html lang="en"><head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${escapedCspSource}; font-src ${escapedCspSource}; script-src 'nonce-${nonce}'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="${escapedCodiconCssUri}">
 <style>
 :root{color-scheme:light dark}
 *{box-sizing:border-box}
 body{margin:0;padding:0;color:var(--vscode-editor-foreground);background:var(--vscode-editor-background);font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);line-height:1.4}
-.preview-shell{min-height:100vh;display:flex;flex-direction:column}
+.preview-shell{height:100vh;display:flex;flex-direction:column}
 .preview-toolbar{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;border-bottom:1px solid var(--vscode-panel-border);background:var(--vscode-sideBar-background,var(--vscode-editor-background))}
 .preview-heading{min-width:0}
 .preview-title{margin:0;font-size:15px;font-weight:600;line-height:1.3}
 .preview-subtitle{margin:2px 0 0;color:var(--vscode-descriptionForeground);font-size:12px}
 .preview-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.preview-zoom{display:flex;overflow:hidden;border:1px solid var(--vscode-toolbar-hoverOutline,var(--vscode-panel-border));border-radius:2px}
+.preview-zoom button{display:grid;width:28px;height:28px;padding:0;border:0;border-radius:0;color:var(--vscode-toolbar-activeForeground,var(--vscode-foreground));background:transparent;place-items:center}
+.preview-zoom button+button{border-left:1px solid var(--vscode-toolbar-hoverOutline,var(--vscode-panel-border))}
+.preview-zoom button:hover{background:var(--vscode-toolbar-hoverBackground)}
+.preview-zoom .codicon{font-size:16px}
 .preview-status{font-size:12px;color:var(--vscode-descriptionForeground)}
 .preview-status.error{color:var(--vscode-errorForeground)}
 .preview-status.warning{color:var(--vscode-editorWarning-foreground)}
@@ -57,7 +67,10 @@ button{border:1px solid var(--vscode-button-border,transparent);border-radius:2p
 button:hover{background:var(--vscode-button-hoverBackground)}
 button:focus-visible,summary:focus-visible{outline:1px solid var(--vscode-focusBorder);outline-offset:2px}
 .diagram-scroll{flex:1;overflow:auto;padding:24px clamp(16px,4vw,48px)}
-.diagram-frame{width:fit-content;min-width:min(100%,640px);margin:0 auto;padding:24px;background:var(--vscode-editorWidget-background,var(--vscode-editor-background));border:1px solid var(--vscode-widget-border,var(--vscode-panel-border));border-radius:4px;box-shadow:0 2px 8px var(--vscode-widget-shadow,transparent)}
+.diagram-canvas{display:flex;min-width:100%;min-height:100%;width:max-content;justify-content:center;align-items:flex-start}
+.diagram-size{position:relative;flex:none}
+.diagram-scale{width:max-content;transform-origin:top left}
+.diagram-frame{width:fit-content;min-width:min(100%,640px);padding:24px;background:var(--vscode-editorWidget-background,var(--vscode-editor-background));border:1px solid var(--vscode-widget-border,var(--vscode-panel-border));border-radius:4px;box-shadow:0 2px 8px var(--vscode-widget-shadow,transparent)}
 .diagram-frame svg{display:block;max-width:none;height:auto}
 .preview-details{margin:0 20px 12px;border:1px solid var(--vscode-panel-border);border-radius:3px;background:var(--vscode-sideBar-background,var(--vscode-editor-background))}
 .preview-details summary{padding:8px 12px;color:var(--vscode-foreground);cursor:pointer;font-weight:600;list-style-position:inside}
@@ -70,13 +83,69 @@ button:focus-visible,summary:focus-visible{outline:1px solid var(--vscode-focusB
 <main class="preview-shell">
 <header class="preview-toolbar">
   <div class="preview-heading"><h1 class="preview-title">UML Preview</h1><p class="preview-subtitle">${escapeHtml(documentLabel)}</p></div>
-  <div class="preview-actions"><span class="preview-status ${diagnosticState}" aria-live="polite">${escapeHtml(diagnosticLabel)}</span><button id="save" type="button" aria-label="Save UML diagram" title="Save UML diagram">Save As…</button></div>
+  <div class="preview-actions"><span class="preview-status ${diagnosticState}" aria-live="polite">${escapeHtml(diagnosticLabel)}</span><div class="preview-zoom" role="group" aria-label="Diagram zoom controls"><button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out"><span class="codicon codicon-zoom-out" aria-hidden="true"></span></button><button id="fit-width" type="button" aria-label="Fit diagram to width" title="Fit diagram to width"><span class="codicon codicon-screen-full" aria-hidden="true"></span></button><button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in"><span class="codicon codicon-zoom-in" aria-hidden="true"></span></button><button id="reset-zoom" type="button" aria-label="Reset zoom" title="Reset zoom"><span class="codicon codicon-debug-restart" aria-hidden="true"></span></button></div><button id="save" type="button" aria-label="Save UML diagram" title="Save UML diagram">Save As…</button></div>
 </header>
-<section class="diagram-scroll" aria-label="UML diagram"><div class="diagram-frame">${svg}</div></section>
+<section class="diagram-scroll" aria-label="UML diagram"><div class="diagram-canvas"><div class="diagram-size"><div class="diagram-scale"><div class="diagram-frame">${svg}</div></div></div></div></section>
 <details class="preview-details"><summary>Analyzed documents <span class="preview-count">${escapeHtml(documentLabel)}</span></summary><ul>${documentItems || "<li>None</li>"}</ul></details>
 <details class="preview-details"${diagnostics.length > 0 ? " open" : ""}><summary>Source diagnostics <span class="preview-count">${escapeHtml(diagnosticLabel)}</span></summary><ul>${diagnosticItems || "<li>None</li>"}</ul></details>
 </main>
-<script nonce="${nonce}">const vscode=acquireVsCodeApi();document.getElementById("save")?.addEventListener("click",()=>vscode.postMessage({command:"save"}));</script>
+<script nonce="${nonce}">
+const vscode=acquireVsCodeApi();
+const ZOOM_STEP=1.2;
+const MIN_SCALE=0.2;
+const MAX_SCALE=4;
+const scroll=document.querySelector(".diagram-scroll");
+const size=document.querySelector(".diagram-size");
+const scaleElement=document.querySelector(".diagram-scale");
+const frame=document.querySelector(".diagram-frame");
+let scale=1;
+let diagramWidth=0;
+let diagramHeight=0;
+const clamp=(value)=>Math.min(MAX_SCALE,Math.max(MIN_SCALE,value));
+function applyScale(nextScale,anchorX=scroll.clientWidth/2,anchorY=scroll.clientHeight/2){
+  const previousScale=scale;
+  scale=clamp(nextScale);
+  if(scale===previousScale)return;
+  const styles=getComputedStyle(scroll);
+  const paddingLeft=parseFloat(styles.paddingLeft);
+  const paddingTop=parseFloat(styles.paddingTop);
+  const contentAnchorX=anchorX-paddingLeft;
+  const contentAnchorY=anchorY-paddingTop;
+  const contentX=scroll.scrollLeft+contentAnchorX;
+  const contentY=scroll.scrollTop+contentAnchorY;
+  scaleElement.style.transform=\`scale(\${scale})\`;
+  size.style.width=\`\${diagramWidth*scale}px\`;
+  size.style.height=\`\${diagramHeight*scale}px\`;
+  scroll.scrollLeft=contentX*scale/previousScale-contentAnchorX;
+  scroll.scrollTop=contentY*scale/previousScale-contentAnchorY;
+}
+function fitWidth(){
+  const styles=getComputedStyle(scroll);
+  const availableWidth=scroll.clientWidth-parseFloat(styles.paddingLeft)-parseFloat(styles.paddingRight);
+  applyScale(availableWidth/diagramWidth);
+}
+document.getElementById("zoom-out")?.addEventListener("click",()=>applyScale(scale/ZOOM_STEP));
+document.getElementById("fit-width")?.addEventListener("click",fitWidth);
+document.getElementById("zoom-in")?.addEventListener("click",()=>applyScale(scale*ZOOM_STEP));
+document.getElementById("reset-zoom")?.addEventListener("click",()=>{applyScale(1);scroll.scrollTo(0,0);});
+scroll.addEventListener("wheel",(event)=>{
+  if(!event.ctrlKey)return;
+  event.preventDefault();
+  const bounds=scroll.getBoundingClientRect();
+  applyScale(scale*(event.deltaY<0?ZOOM_STEP:1/ZOOM_STEP),event.clientX-bounds.left,event.clientY-bounds.top);
+},{passive:false});
+requestAnimationFrame(()=>{
+  const svg=frame.querySelector("svg");
+  const intrinsicWidth=svg?.getBoundingClientRect().width||frame.offsetWidth;
+  const intrinsicHeight=svg?.getBoundingClientRect().height||frame.offsetHeight;
+  diagramWidth=intrinsicWidth+(frame.offsetWidth-intrinsicWidth);
+  diagramHeight=intrinsicHeight+(frame.offsetHeight-intrinsicHeight);
+  size.style.width=\`\${diagramWidth}px\`;
+  size.style.height=\`\${diagramHeight}px\`;
+  fitWidth();
+});
+document.getElementById("save")?.addEventListener("click",()=>vscode.postMessage({command:"save"}));
+</script>
 </body></html>`;
 }
 
@@ -112,17 +181,19 @@ export function cleanupSession(tempDir: string, svgPath: string): void {
   fs.rmSync(resolvedDir, { recursive: true, force: true });
 }
 
-export function showPreview(session: GenerationSession): vscode.WebviewPanel {
+export function showPreview(session: GenerationSession, extensionUri: vscode.Uri): vscode.WebviewPanel {
   const panel = vscode.window.createWebviewPanel(
     "python2uml.preview",
     "UML Preview",
     vscode.ViewColumn.Active,
-    { enableScripts: true, localResourceRoots: [] },
+    { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")] },
   );
   panel.webview.html = previewHtml(
     fs.readFileSync(session.svgPath, "utf8"),
     session.documents,
     session.payload.diagnostics,
+    panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "codicons", "codicon.css")).toString(),
+    panel.webview.cspSource,
   );
   panel.webview.onDidReceiveMessage(async (message: unknown) => {
     if (isSaveMessage(message)) {

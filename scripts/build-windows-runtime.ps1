@@ -1,5 +1,9 @@
 [CmdletBinding()]
-param([string]$BuildPython)
+param(
+    [string]$BuildPython,
+    [string]$VcpkgDownloadsRoot,
+    [ValidateRange(1, 64)][int]$VcpkgMaxConcurrency = 4
+)
 
 $pythonUrl = 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip'
 $pythonSha256 = '4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3'
@@ -16,9 +20,11 @@ $BuildPython = [IO.Path]::GetFullPath($BuildPython)
 $pythonRuntime = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'python-runtime'))
 $graphvizRuntime = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'graphviz'))
 $licenses = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'licenses'))
-$allowedGeneratedPaths = $pythonRuntime, $graphvizRuntime, $licenses
+$sourceProvenance = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'third-party-source-provenance'))
+$allowedGeneratedPaths = $pythonRuntime, $graphvizRuntime, $licenses, $sourceProvenance
 $vcpkgRoot = Join-Path $repositoryRoot 'runtime-downloads\vcpkg'
 $vcpkgComplianceRoot = Join-Path $repositoryRoot 'runtime-downloads\vcpkg-compliance'
+$VcpkgDownloadsRoot = if ($VcpkgDownloadsRoot) { [IO.Path]::GetFullPath($VcpkgDownloadsRoot) } else { Join-Path $repositoryRoot 'runtime-downloads\vcpkg-downloads' }
 $graphvizMsvcPatch = Join-Path $PSScriptRoot 'graphviz-msvc-stdalign.diff'
 
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or $env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
@@ -87,29 +93,31 @@ function Get-Sha256([string]$Path) {
 }
 
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ("python2uml-runtime-" + [guid]::NewGuid())
-$environmentNames = 'PATH', 'EXTENSION_GRAPHVIZ_DOT', 'PYTHONNOUSERSITE', 'PYTHONUNBUFFERED'
+$environmentNames = 'PATH', 'EXTENSION_GRAPHVIZ_DOT', 'PYTHONNOUSERSITE', 'PYTHONUNBUFFERED', 'VCPKG_MAX_CONCURRENCY'
 $savedEnvironment = @{}
 foreach ($name in $environmentNames) {
     $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
+[Environment]::SetEnvironmentVariable('VCPKG_MAX_CONCURRENCY', $VcpkgMaxConcurrency.ToString([Globalization.CultureInfo]::InvariantCulture), 'Process')
 New-Directory $temporary
 Push-Location $repositoryRoot
 try {
     Remove-GeneratedDirectory $pythonRuntime
     Remove-GeneratedDirectory $graphvizRuntime
     Remove-GeneratedDirectory $licenses
+    Remove-GeneratedDirectory $sourceProvenance
     if (Test-Path -LiteralPath $vcpkgRoot) { Remove-Item -LiteralPath $vcpkgRoot -Recurse -Force }
     if (Test-Path -LiteralPath $vcpkgComplianceRoot) { Remove-Item -LiteralPath $vcpkgComplianceRoot -Recurse -Force }
 
     New-Directory $pythonRuntime
     New-Directory $graphvizRuntime
     New-Directory (Join-Path $licenses 'python')
+    New-Directory $sourceProvenance
     New-Directory $vcpkgComplianceRoot
+    New-Directory $VcpkgDownloadsRoot
 
     $pythonArchive = Join-Path $temporary 'python.zip'
     $requirements = Join-Path $temporary 'requirements.txt'
-    $graphvizCompliancePortRoot = Join-Path $vcpkgComplianceRoot 'ports\graphviz'
-    $graphvizComplianceDownloadsRoot = Join-Path $vcpkgComplianceRoot 'downloads'
     $graphvizComplianceCommitPath = Join-Path $vcpkgComplianceRoot 'commit.txt'
     $graphvizComplianceProvenancePath = Join-Path $vcpkgComplianceRoot 'provenance.json'
     $graphvizManifestPath = Join-Path $licenses 'graphviz\shipped-dlls.sha256'
@@ -142,7 +150,7 @@ try {
     & (Join-Path $vcpkgRoot 'bootstrap-vcpkg.bat')
     if ($LASTEXITCODE -ne 0) { throw 'vcpkg bootstrap failed.' }
 
-    & (Join-Path $vcpkgRoot 'vcpkg.exe') install 'graphviz[tools]:x64-windows' --triplet x64-windows --disable-metrics
+    & (Join-Path $vcpkgRoot 'vcpkg.exe') install 'graphviz[tools]:x64-windows' --triplet x64-windows --downloads-root=$VcpkgDownloadsRoot --disable-metrics --no-binarycaching
     if ($LASTEXITCODE -ne 0) { throw 'vcpkg Graphviz build failed.' }
 
     $installedStatus = Join-Path $vcpkgRoot 'installed\vcpkg\status'
@@ -150,13 +158,24 @@ try {
     $complianceStatus = Join-Path $vcpkgComplianceRoot 'installed\vcpkg\status'
     New-Directory (Split-Path -Parent $complianceStatus)
     Copy-Item -LiteralPath $installedStatus -Destination $complianceStatus -Force
+    Copy-DirectoryContents (Join-Path $vcpkgRoot 'installed\vcpkg\info') (Join-Path $vcpkgComplianceRoot 'installed\vcpkg\info')
     Get-Content -LiteralPath $installedStatus | Where-Object { $_ -like 'Package: *' } | ForEach-Object { $_.Substring(9) } | Sort-Object -Unique | ForEach-Object {
         $port = Join-Path $vcpkgRoot (Join-Path 'ports' $_)
         if (-not (Test-Path -LiteralPath $port -PathType Container)) { throw "Installed package port was not found: $_" }
         Copy-DirectoryContents $port (Join-Path $vcpkgComplianceRoot (Join-Path 'ports' $_))
     }
-    if (Test-Path -LiteralPath (Join-Path $vcpkgRoot 'downloads')) {
-        Copy-DirectoryContents (Join-Path $vcpkgRoot 'downloads') $graphvizComplianceDownloadsRoot
+    $downloadsRoot = $VcpkgDownloadsRoot
+    if (-not (Test-Path -LiteralPath $downloadsRoot -PathType Container)) { throw 'vcpkg source downloads were not created.' }
+    $sourceDownloads = @(Get-ChildItem -LiteralPath $downloadsRoot -File)
+    if ($sourceDownloads.Count -eq 0) { throw 'vcpkg source download archives were not created.' }
+    $complianceDownloadsRoot = Join-Path $vcpkgComplianceRoot 'downloads'
+    New-Directory $complianceDownloadsRoot
+    $sourceDownloads | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $complianceDownloadsRoot -Force }
+    Get-ChildItem -LiteralPath (Join-Path $vcpkgRoot 'buildtrees') -Recurse -File -Filter '*.vcpkg_abi_info.txt' | ForEach-Object {
+        $relativePath = $_.FullName.Substring((Join-Path $vcpkgRoot 'buildtrees').Length + 1)
+        $destination = Join-Path $vcpkgComplianceRoot (Join-Path 'buildtrees' $relativePath)
+        New-Directory (Split-Path -Parent $destination)
+        Copy-Item -LiteralPath $_.FullName -Destination $destination -Force
     }
     Write-TextFile $graphvizComplianceCommitPath $vcpkgCommit
     $provenance = [ordered]@{
@@ -165,6 +184,9 @@ try {
         triplet          = 'x64-windows'
         graphvizPortRoot = 'ports/graphviz'
         downloadsRoot    = 'downloads'
+        installedMetadataRoot = 'installed/vcpkg'
+        buildMetadataRoot = 'buildtrees'
+        maxConcurrency    = $VcpkgMaxConcurrency
         runtimeManifest  = 'licenses/graphviz/shipped-dlls.sha256'
     }
     Write-TextFile $graphvizComplianceProvenancePath ($provenance | ConvertTo-Json -Depth 5)
@@ -183,6 +205,15 @@ try {
         $source = Join-Path $installedRoot $relative
         if (Test-Path -LiteralPath $source) {
             Copy-DirectoryContents $source (Join-Path $graphvizRuntime $relative)
+        }
+    }
+    Get-ChildItem -LiteralPath $graphvizRuntime -File -Recurse -Filter '*.pdb' | Remove-Item -Force
+    Get-ChildItem -LiteralPath (Join-Path $graphvizRuntime 'bin') -File -Filter '*.exe' | Where-Object { $_.Name -ne 'dot.exe' } | Remove-Item -Force
+    Get-ChildItem -LiteralPath $graphvizRuntime -File -Recurse | Where-Object { $_.Extension -in '.lib', '.pc' } | Remove-Item -Force
+    foreach ($relative in @('share\doc', 'share\man', 'share\aclocal', 'share\bash-completion', 'share\vcpkg-cmake', 'share\vcpkg-cmake-config', 'share\vcpkg-make', 'share\vcpkg-tool-meson')) {
+        $optional = Join-Path $graphvizRuntime $relative
+        if (Test-Path -LiteralPath $optional) {
+            Remove-Item -LiteralPath $optional -Recurse -Force
         }
     }
 
@@ -233,8 +264,7 @@ try {
         }
     }
 
-    New-Directory (Join-Path $graphvizLicenseRoot 'vcpkg')
-    Copy-DirectoryContents $vcpkgComplianceRoot (Join-Path $graphvizLicenseRoot 'vcpkg')
+    Copy-DirectoryContents $vcpkgComplianceRoot (Join-Path $sourceProvenance 'graphviz\vcpkg')
 
     $manifestLines = New-Object System.Collections.Generic.List[string]
     Get-ChildItem -LiteralPath $graphvizRuntime -File -Recurse | Sort-Object FullName | ForEach-Object {

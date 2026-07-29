@@ -112,6 +112,7 @@ suite("Extension Test Suite", () => {
   test("parses the single CLI JSON payload and rejects noisy output", () => {
     const json = JSON.stringify({
       output: "diagram.svg",
+      documents: ["C:\\project\\model.py"],
       classes: {},
       relationships: [],
       diagnostics: [
@@ -119,18 +120,28 @@ suite("Extension Test Suite", () => {
       ],
     });
     assert.strictEqual(parseGenerationPayload(json).output, "diagram.svg");
+    assert.deepStrictEqual(parseGenerationPayload(json).documents, ["C:\\project\\model.py"]);
     assert.throws(() => parseGenerationPayload(`noise\n${json}`), /valid JSON/);
     assert.throws(() => parseGenerationPayload('{"output":1}'), /payload/);
     assert.throws(() => parseGenerationPayload(JSON.stringify({
       output: "diagram.svg",
+      documents: [],
       classes: { Broken: { name: 1, kind: "class", attributes: [], methods: [] } },
       relationships: [],
       diagnostics: [],
     })), /payload/);
     assert.throws(() => parseGenerationPayload(JSON.stringify({
       output: "diagram.svg",
+      documents: [],
       classes: {},
       relationships: [{ source: "A", target: "B", relationship_type: "owns" }],
+      diagnostics: [],
+    })), /payload/);
+    assert.throws(() => parseGenerationPayload(JSON.stringify({
+      output: "diagram.svg",
+      documents: [1],
+      classes: {},
+      relationships: [],
       diagnostics: [],
     })), /payload/);
   });
@@ -144,7 +155,7 @@ suite("Extension Test Suite", () => {
     const calls: Array<{ executable: string; args: string[]; options: { env: NodeJS.ProcessEnv; windowsHide: boolean } }> = [];
     const run = async (executable: string, args: string[], options: { env: NodeJS.ProcessEnv; windowsHide: boolean }) => {
       calls.push({ executable, args, options });
-      return { stdout: JSON.stringify({ output: "diagram.drawio", classes: {}, relationships: [], diagnostics: [] }), stderr: "" };
+      return { stdout: JSON.stringify({ output: "diagram.drawio", documents: [], classes: {}, relationships: [], diagnostics: [] }), stderr: "" };
     };
     await runScript(runtime, ["-t", "java", "-o", "diagram.drawio", "-p", "Model.java"], run);
     assert.deepStrictEqual(calls, [{
@@ -244,14 +255,36 @@ suite("Extension Test Suite", () => {
   });
 
   test("preview escapes diagnostics, restricts messages, and labels documents", () => {
-    const html = previewHtml("<svg></svg>", ["safe.py"], [
+    const documentPath = path.join(os.tmpdir(), "safe.py");
+    const cspSource = "https://7f3d.example.vscode-cdn.net";
+    const codiconCssUri = `${cspSource}/media/codicons/codicon.css`;
+    const html = previewHtml("<svg></svg>", [documentPath], [
       { path: "<bad>", line: 1, column: 2, severity: "error", message: "<script>alert(1)</script>" },
-    ]);
+    ], codiconCssUri, cspSource);
     assert.ok(!html.includes("<script>alert(1)</script>"));
     assert.ok(html.includes("&lt;script&gt;"));
     assert.ok(html.includes("Content-Security-Policy"));
+    assert.ok(html.includes(".preview-shell{height:100vh;"));
     assert.ok(html.includes('class="preview-toolbar"'));
     assert.ok(html.includes('aria-label="Save UML diagram"'));
+    assert.ok(html.includes(codiconCssUri));
+    assert.ok(html.includes(`style-src 'unsafe-inline' ${cspSource}; font-src ${cspSource};`));
+    assert.ok(!html.includes("vscode-webview-resource:"));
+    assert.ok(html.includes("codicon-zoom-out"));
+    assert.ok(html.includes("codicon-screen-full"));
+    assert.ok(html.includes("codicon-zoom-in"));
+    assert.ok(html.includes("codicon-debug-restart"));
+    assert.ok(html.includes('aria-label="Zoom out"'));
+    assert.ok(html.includes('aria-label="Fit diagram to width"'));
+    assert.ok(html.includes('aria-label="Zoom in"'));
+    assert.ok(html.includes('aria-label="Reset zoom"'));
+    assert.ok(html.includes("ctrlKey"));
+    assert.ok(html.includes("wheel"));
+    assert.ok(html.includes("const contentAnchorX=anchorX-paddingLeft;"));
+    assert.ok(html.includes("const contentAnchorY=anchorY-paddingTop;"));
+    assert.ok(html.includes("scroll.scrollLeft=contentX*scale/previousScale-contentAnchorX;"));
+    assert.ok(html.includes("scroll.scrollTop=contentY*scale/previousScale-contentAnchorY;"));
+    assert.ok(html.includes(documentPath));
     assert.ok(html.includes("Analyzed documents"));
     assert.ok(html.includes("1 document"));
     assert.ok(html.includes("1 diagnostic"));

@@ -63,7 +63,7 @@ def test_cli_renders_valid_declarations_and_reports_source_errors(tmp_path, caps
 
     assert exit_code == 0
     assert captured.err == ""
-    assert set(payload) == {"output", "classes", "relationships", "diagnostics"}
+    assert set(payload) == {"output", "classes", "relationships", "diagnostics", "documents"}
     assert payload["output"] == str(output)
     assert payload["classes"]["Valid"] == {
         "name": "Valid",
@@ -76,6 +76,21 @@ def test_cli_renders_valid_declarations_and_reports_source_errors(tmp_path, caps
     assert payload["diagnostics"] == [expected_diagnostic, expected_diagnostic]
     assert all({name: type(value) for name, value in diagnostic.items()} == {"path": str, "line": int, "column": int, "severity": str, "message": str} for diagnostic in payload["diagnostics"])
     assert output.exists()
+
+
+def test_cli_reports_analyzed_documents_in_collection_order(tmp_path, capsys, monkeypatch):
+    first = tmp_path / "a_model.py"
+    second = tmp_path / "b_model.py"
+    first.write_text("class First:\n    pass\n", encoding="utf-8")
+    second.write_text("class Second:\n    pass\n", encoding="utf-8")
+
+    monkeypatch.setattr("python2uml.generator.GraphvizRenderer.render", lambda self, diagram, output_path: None)
+
+    exit_code = main(["-t", "python", "-o", str(tmp_path / "preview.svg"), "-p", str(tmp_path)])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["documents"] == [str(first), str(second)]
 
 
 @pytest.mark.parametrize(
@@ -107,19 +122,23 @@ def test_cli_dispatches_all_project_languages(tmp_path, capsys, monkeypatch, lan
     assert payload["output"] == str(output)
 
 
-def test_cli_routes_drawio_output_without_graphviz(tmp_path, capsys):
+def test_cli_reports_drawio_layout_failure_on_stderr(tmp_path, capsys, monkeypatch):
     source = tmp_path / "model.py"
     source.write_text("class Model:\n    pass\n", encoding="utf-8")
     output = tmp_path / "preview.drawio"
+    error = "Graphviz draw.io layout failed: bundled Graphviz executable was not found."
+
+    def fail_layout(self, dot_source):
+        raise RuntimeError(error)
+
+    monkeypatch.setattr("python2uml.renderers.drawio_renderer.DrawioRenderer._run_layout", fail_layout)
 
     exit_code = main(["-t", "python", "-o", str(output), "-p", str(source)])
     captured = capsys.readouterr()
-    payload = json.loads(captured.out)
 
-    assert exit_code == 0
-    assert captured.err == ""
-    assert payload["output"] == str(output)
-    assert output.read_text(encoding="utf-8").startswith("<?xml")
+    assert exit_code != 0
+    assert captured.out == ""
+    assert captured.err == f"{error}\n"
 
 
 def test_cli_serializes_relationship_enum_as_primitive_value(tmp_path, capsys, monkeypatch):

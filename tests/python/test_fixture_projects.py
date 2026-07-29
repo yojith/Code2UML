@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -372,6 +373,10 @@ def test_fixture_project(language, project, expected):
 
 
 def test_module_cli_accepts_language_and_prints_diagnostics(tmp_path):
+    dot = os.environ.get("EXTENSION_GRAPHVIZ_DOT")
+    if not dot or not Path(dot).is_absolute() or not Path(dot).is_file():
+        pytest.skip("requires EXTENSION_GRAPHVIZ_DOT to reference the bundled Graphviz executable")
+
     result = subprocess.run(
         [
             sys.executable,
@@ -382,9 +387,10 @@ def test_module_cli_accepts_language_and_prints_diagnostics(tmp_path):
             "--paths",
             str(FIXTURES / "java" / "project2"),
             "--output",
-            str(tmp_path / "fixture.drawio"),
+            str(tmp_path / "fixture.svg"),
         ],
         cwd=ROOT,
+        env=os.environ.copy(),
         check=True,
         capture_output=True,
         text=True,

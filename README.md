@@ -12,7 +12,7 @@ The bundled Graphviz runtime depends on the Microsoft VC++ 2015–2022 Redistrib
 
 WSL, remote extension hosts (including SSH and dev containers), Windows ARM64, Linux, and macOS are not supported.
 
-Source CLI development requires Python 3.11 or newer. Graphviz-backed output also requires [Graphviz](https://graphviz.org/download/) with `dot.exe` on `PATH` and `EXTENSION_GRAPHVIZ_DOT` set to its absolute path; draw.io output does not. Install the project and test tools from `pyproject.toml`:
+Source CLI development requires Python 3.11 or newer. All output, including draw.io, requires [Graphviz](https://graphviz.org/download/) with `dot.exe` on `PATH` and `EXTENSION_GRAPHVIZ_DOT` set to its absolute path. Install the project and test tools from `pyproject.toml`:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
@@ -36,7 +36,7 @@ npm run build:runtime:win32-x64
 
 ## CLI
 
-The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. Before requesting SVG or another Graphviz-backed format, select the same absolute `dot.exe` exposed on `PATH`:
+The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. Before requesting diagram output, select the same absolute `dot.exe` exposed on `PATH`:
 
 ```powershell
 $env:EXTENSION_GRAPHVIZ_DOT = (Get-Command dot.exe -ErrorAction Stop).Source
@@ -52,7 +52,7 @@ uvx --from "C:\path\to\python2uml" python2uml --project-type java --output diagr
 
 uv is optional for ordinary source CLI invocation, required only when assembling the extension runtime, and not required by Marketplace users.
 
-Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML. A successful run writes one JSON object to stdout containing `output`, `classes`, `relationships`, and `diagnostics`. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
+Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML using the same Graphviz layout engine and fails with its availability or geometry error when Graphviz cannot provide a layout. A successful run writes one JSON object to stdout containing `output`, `documents`, `classes`, `relationships`, and `diagnostics`; `documents` lists the absolute source-file paths actually analyzed in deterministic collection order. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
 
 ## Model behavior and limits
 

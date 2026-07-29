@@ -1,19 +1,36 @@
-name: Test
+name: Test extension
 
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
       - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: npm ci
+      - run: uv sync --extra dev --frozen
+      - run: uv run --frozen --extra dev python -m black --check src/python2uml tests/python
       - run: uv run --extra dev --with pytest-cov pytest -v --cov=python2uml --cov-report=term-missing --cov-report=html
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-html
           path: htmlcov
           if-no-files-found: error
+      - run: npm run compile
+      - run: npm run lint
+      - run: xvfb-run -a npm test
