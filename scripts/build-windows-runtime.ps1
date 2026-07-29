@@ -20,7 +20,8 @@ $BuildPython = [IO.Path]::GetFullPath($BuildPython)
 $pythonRuntime = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'python-runtime'))
 $graphvizRuntime = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'graphviz'))
 $licenses = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'licenses'))
-$allowedGeneratedPaths = $pythonRuntime, $graphvizRuntime, $licenses
+$sourceProvenance = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'third-party-source-provenance'))
+$allowedGeneratedPaths = $pythonRuntime, $graphvizRuntime, $licenses, $sourceProvenance
 $vcpkgRoot = Join-Path $repositoryRoot 'runtime-downloads\vcpkg'
 $vcpkgComplianceRoot = Join-Path $repositoryRoot 'runtime-downloads\vcpkg-compliance'
 $VcpkgDownloadsRoot = if ($VcpkgDownloadsRoot) { [IO.Path]::GetFullPath($VcpkgDownloadsRoot) } else { Join-Path $repositoryRoot 'runtime-downloads\vcpkg-downloads' }
@@ -104,12 +105,14 @@ try {
     Remove-GeneratedDirectory $pythonRuntime
     Remove-GeneratedDirectory $graphvizRuntime
     Remove-GeneratedDirectory $licenses
+    Remove-GeneratedDirectory $sourceProvenance
     if (Test-Path -LiteralPath $vcpkgRoot) { Remove-Item -LiteralPath $vcpkgRoot -Recurse -Force }
     if (Test-Path -LiteralPath $vcpkgComplianceRoot) { Remove-Item -LiteralPath $vcpkgComplianceRoot -Recurse -Force }
 
     New-Directory $pythonRuntime
     New-Directory $graphvizRuntime
     New-Directory (Join-Path $licenses 'python')
+    New-Directory $sourceProvenance
     New-Directory $vcpkgComplianceRoot
     New-Directory $VcpkgDownloadsRoot
 
@@ -261,8 +264,7 @@ try {
         }
     }
 
-    New-Directory (Join-Path $graphvizLicenseRoot 'vcpkg')
-    Copy-DirectoryContents $vcpkgComplianceRoot (Join-Path $graphvizLicenseRoot 'vcpkg')
+    Copy-DirectoryContents $vcpkgComplianceRoot (Join-Path $sourceProvenance 'graphviz\vcpkg')
 
     $manifestLines = New-Object System.Collections.Generic.List[string]
     Get-ChildItem -LiteralPath $graphvizRuntime -File -Recurse | Sort-Object FullName | ForEach-Object {
