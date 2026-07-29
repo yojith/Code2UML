@@ -6,13 +6,13 @@ Python is parsed with the standard-library `ast` module. Java, C++, and C use th
 
 ## Requirements
 
-The Marketplace extension requires a Windows x64 extension host. It bundles its own Python runtime and Graphviz, so no separate Python, virtual environment, pip installation, or Graphviz installation is needed.
+The Marketplace extension requires a Windows x64 extension host. It bundles its own Python runtime, so no separate Python, virtual environment, or pip installation is needed. It requires Graphviz `dot.exe` on `PATH`; install Graphviz, add its `bin` directory to `PATH`, then restart VS Code.
 
-The bundled Graphviz runtime depends on the Microsoft VC++ 2015–2022 Redistributable x64 runtime. Install the official Microsoft x64 redistributable before using the packaged extension if Windows reports that a VC++ runtime DLL is missing.
+The bundled Python runtime depends on the Microsoft Visual C++ 2015-2022 Redistributable x64 runtime. Install the official Microsoft x64 redistributable before using the packaged extension if Windows reports that a VC++ runtime DLL is missing.
 
 WSL, remote extension hosts (including SSH and dev containers), Windows ARM64, Linux, and macOS are not supported.
 
-Source CLI development requires Python 3.11 or newer. All output, including draw.io, requires [Graphviz](https://graphviz.org/download/) with `dot.exe` on `PATH` and `EXTENSION_GRAPHVIZ_DOT` set to its absolute path. Install the project and test tools from `pyproject.toml`:
+Source CLI development requires Python 3.11 or newer. All output, including draw.io, requires [Graphviz](https://graphviz.org/download/) with `dot.exe` on `PATH`. Install the project and test tools from `pyproject.toml`:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
@@ -26,7 +26,7 @@ Choose **Generate UML for Python**, **Java**, **C++**, or **C** from the Python2
 
 Generation opens a temporary SVG preview. The webview lists source diagnostics separately and offers **Save As...**. Saving SVG copies the preview; PNG, PDF, JPG, and draw.io selections rerender the same inputs. Closing the preview removes its temporary session files.
 
-Before testing the extension in an Extension Development Host on Windows x64, assemble the bundled runtime:
+Before testing the extension in an Extension Development Host on Windows x64, assemble the bundled Python runtime:
 
 Runtime assembly requires [uv](https://docs.astral.sh/uv/) on `PATH` to install the locked build and production dependencies.
 
@@ -36,13 +36,7 @@ npm run build:runtime:win32-x64
 
 ## CLI
 
-The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. Before requesting diagram output, select the same absolute `dot.exe` exposed on `PATH`:
-
-```powershell
-$env:EXTENSION_GRAPHVIZ_DOT = (Get-Command dot.exe -ErrorAction Stop).Source
-```
-
-Then pass one language and one or more files or folders:
+The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. With `dot.exe` on `PATH`, pass one language and one or more files or folders:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1

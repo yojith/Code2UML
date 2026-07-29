@@ -126,7 +126,7 @@ def test_cli_reports_drawio_layout_failure_on_stderr(tmp_path, capsys, monkeypat
     source = tmp_path / "model.py"
     source.write_text("class Model:\n    pass\n", encoding="utf-8")
     output = tmp_path / "preview.drawio"
-    error = "Graphviz draw.io layout failed: bundled Graphviz executable was not found."
+    error = "Graphviz draw.io layout failed: Graphviz dot.exe was not found on PATH."
 
     def fail_layout(self, dot_source):
         raise RuntimeError(error)

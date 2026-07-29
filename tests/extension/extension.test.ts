@@ -8,7 +8,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { LANGUAGES } from "../../src/languages";
 import { resolveSelectedPaths } from "../../src/umlGenerator";
-import { parseGenerationPayload, resolveBundledRuntime, runScript } from "../../src/pythonRunner";
+import { parseGenerationPayload, resolveBundledRuntime, resolveGraphvizOnPath, runScript } from "../../src/pythonRunner";
 import {
   cleanupSession,
   isSaveMessage,
@@ -186,7 +186,7 @@ suite("Extension Test Suite", () => {
     );
   });
 
-  test("resolves an isolated bundled Windows runtime", () => {
+  test("resolves the bundled Python runtime and Graphviz from PATH", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml runtime "));
     const extension = vscode.Uri.file(root);
     const python = path.join(root, "python-runtime", "python.exe");
@@ -202,14 +202,25 @@ suite("Extension Test Suite", () => {
     fs.writeFileSync(path.join(systemRoot, "System32", "msvcp140.dll"), "");
     const parentPath = process.env.PATH;
     try {
-      const runtime = resolveBundledRuntime(extension, "win32", "x64", undefined, systemRoot);
+      const runtime = resolveBundledRuntime(extension, "win32", "x64", undefined, systemRoot, path.dirname(dot));
       assert.strictEqual(runtime.pythonExec, python);
       assert.strictEqual(runtime.dotExec, dot);
-      assert.strictEqual(runtime.env.EXTENSION_GRAPHVIZ_DOT, dot);
       assert.strictEqual(runtime.env.PYTHONNOUSERSITE, "1");
       assert.strictEqual(runtime.env.PYTHONUNBUFFERED, "1");
-      assert.strictEqual(runtime.env.PATH?.split(path.delimiter)[0], path.dirname(dot));
+      assert.strictEqual(runtime.env.PATH, parentPath);
       assert.strictEqual(process.env.PATH, parentPath);
+    } finally {
+      fs.rmSync(root, { recursive: true });
+    }
+  });
+
+  test("requires Graphviz dot.exe on PATH", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml graphviz "));
+    const dot = path.join(root, "dot.exe");
+    fs.writeFileSync(dot, "");
+    try {
+      assert.throws(() => resolveGraphvizOnPath(""), /Graphviz dot\.exe was not found on PATH/);
+      assert.strictEqual(resolveGraphvizOnPath(root), dot);
     } finally {
       fs.rmSync(root, { recursive: true });
     }

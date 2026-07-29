@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from html import escape
-import os
 import shutil
 from pathlib import Path
 
@@ -24,19 +23,10 @@ GRAPH_ATTRS = {
 
 
 def get_dot_executable() -> Path:
-    configured = os.environ.get("EXTENSION_GRAPHVIZ_DOT")
-    if not configured:
-        raise RuntimeError("Bundled Graphviz path was not supplied by the extension.")
-    dot_path = Path(configured)
-    if not dot_path.is_absolute():
-        raise RuntimeError(f"Bundled Graphviz path must be absolute: {dot_path}")
-    if not dot_path.is_file():
-        raise RuntimeError(f"Bundled Graphviz executable was not found: {dot_path}")
-    resolved = dot_path.resolve()
-    discovered = shutil.which("dot")
-    if discovered is None or Path(discovered).resolve() != resolved:
-        raise RuntimeError(f"Graphviz on PATH does not match bundled executable: {resolved}")
-    return resolved
+    dot_path = shutil.which("dot")
+    if dot_path is None:
+        raise RuntimeError("Graphviz dot.exe was not found on PATH. Install Graphviz for Windows, add its bin directory to PATH, then restart VS Code.")
+    return Path(dot_path).resolve()
 
 
 class GraphvizRenderer:
