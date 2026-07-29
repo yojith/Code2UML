@@ -87,7 +87,7 @@ class GraphvizRenderer:
     def _edge_attrs(self, relationship_type: RelationshipType) -> dict[str, str]:
         return {
             RelationshipType.INHERITANCE: {"arrowhead": "onormal"},
-            RelationshipType.IMPLEMENTATION: {"arrowhead": "onormal", "style": "dashed"},
+            RelationshipType.IMPLEMENTATION: {"arrowhead": "vee", "style": "dashed"},
             RelationshipType.ASSOCIATION: {"arrowhead": "normal"},
             RelationshipType.AGGREGATION: {"arrowtail": "odiamond", "dir": "back"},
             RelationshipType.COMPOSITION: {"arrowtail": "diamond", "dir": "back"},

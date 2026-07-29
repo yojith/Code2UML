@@ -327,7 +327,7 @@ class DrawioRenderer:
             EDGE_STYLE
             + {
                 RelationshipType.INHERITANCE: "endArrow=block;endFill=0;",
-                RelationshipType.IMPLEMENTATION: "endArrow=block;endFill=0;dashed=1;",
+                RelationshipType.IMPLEMENTATION: "endArrow=open;dashed=1;",
                 RelationshipType.ASSOCIATION: "endArrow=open;",
                 RelationshipType.AGGREGATION: "startArrow=diamond;startFill=0;endArrow=none;",
                 RelationshipType.COMPOSITION: "startArrow=diamond;startFill=1;endArrow=none;",

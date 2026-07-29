@@ -142,7 +142,7 @@ def test_graphviz_source_maps_every_class_kind_and_relationship_style():
         assert expected_title in dot.source
     for expected in (
         "arrowhead=onormal",
-        "arrowhead=onormal style=dashed",
+        "arrowhead=vee style=dashed",
         "arrowhead=normal",
         "arrowtail=odiamond dir=back",
         "arrowtail=diamond dir=back",
@@ -164,7 +164,7 @@ def test_drawio_xml_maps_every_class_kind_and_relationship_style(tmp_path: Path)
     assert {cell.get("value") for cell in classes} == {kind.value if kind == ClassKind.CLASS else f"&lt;&lt;{kind.value}&gt;&gt; {kind.value}" for kind in ClassKind}
     for expected in (
         "endArrow=block;endFill=0;",
-        "endArrow=block;endFill=0;dashed=1;",
+        "endArrow=open;dashed=1;",
         "endArrow=open;",
         "startArrow=diamond;startFill=0;endArrow=none;",
         "startArrow=diamond;startFill=1;endArrow=none;",
@@ -262,7 +262,7 @@ def test_drawio_layout_edges_ignore_relationship_type_but_xml_styles_do_not(tmp_
     dot_sources = []
     expected_styles = {
         RelationshipType.INHERITANCE: "endArrow=block;endFill=0;",
-        RelationshipType.IMPLEMENTATION: "endArrow=block;endFill=0;dashed=1;",
+        RelationshipType.IMPLEMENTATION: "endArrow=open;dashed=1;",
         RelationshipType.ASSOCIATION: "endArrow=open;",
         RelationshipType.AGGREGATION: "startArrow=diamond;startFill=0;endArrow=none;",
         RelationshipType.COMPOSITION: "startArrow=diamond;startFill=1;endArrow=none;",

@@ -48,7 +48,7 @@ export function previewHtml(
 :root{color-scheme:light dark}
 *{box-sizing:border-box}
 body{margin:0;padding:0;color:var(--vscode-editor-foreground);background:var(--vscode-editor-background);font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);line-height:1.4}
-.preview-shell{min-height:100vh;display:flex;flex-direction:column}
+.preview-shell{height:100vh;display:flex;flex-direction:column}
 .preview-toolbar{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;border-bottom:1px solid var(--vscode-panel-border);background:var(--vscode-sideBar-background,var(--vscode-editor-background))}
 .preview-heading{min-width:0}
 .preview-title{margin:0;font-size:15px;font-weight:600;line-height:1.3}

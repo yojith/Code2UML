@@ -264,6 +264,7 @@ suite("Extension Test Suite", () => {
     assert.ok(!html.includes("<script>alert(1)</script>"));
     assert.ok(html.includes("&lt;script&gt;"));
     assert.ok(html.includes("Content-Security-Policy"));
+    assert.ok(html.includes(".preview-shell{height:100vh;"));
     assert.ok(html.includes('class="preview-toolbar"'));
     assert.ok(html.includes('aria-label="Save UML diagram"'));
     assert.ok(html.includes(codiconCssUri));
