@@ -9,7 +9,7 @@ type ProcessOptions = { env: NodeJS.ProcessEnv; windowsHide: boolean };
 type ProcessRunner = (executable: string, args: string[], options: ProcessOptions) => Promise<ProcessResult>;
 const execute = promisify(execFile) as unknown as ProcessRunner;
 
-export interface BundledRuntime {
+export interface ExtensionRuntime {
   pythonExec: string;
   dotExec: string;
   env: NodeJS.ProcessEnv;
@@ -92,14 +92,14 @@ export function resolveGraphvizOnPath(pathValue = process.env.PATH ?? ""): strin
   throw new Error(GRAPHVIZ_NOT_FOUND_MESSAGE);
 }
 
-export function resolveBundledRuntime(
+export function resolveRuntime(
   extensionUri: Uri,
   platform = process.platform,
   architecture = process.arch,
   remoteName = env.remoteName,
   systemRoot = process.env.SystemRoot ?? process.env.WINDIR,
   graphvizPath = process.env.PATH ?? "",
-): BundledRuntime {
+): ExtensionRuntime {
   if (remoteName) {
     throw new Error(`Python2UML currently supports only local Windows x64 extension hosts; detected remote host ${remoteName} on ${platform}-${architecture}`);
   }
@@ -204,7 +204,7 @@ export function parseGenerationPayload(stdout: string): GenerationPayload {
 }
 
 export async function runScript(
-  runtime: BundledRuntime,
+  runtime: ExtensionRuntime,
   args: string[],
   run: ProcessRunner = execute,
 ): Promise<GenerationPayload> {

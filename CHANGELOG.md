@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preview diagrams in VS Code, with zoom controls, diagnostics, and clearer source-file reporting.
 - Export structured, editable draw.io diagrams with Graphviz-powered layout, orthogonal routes, and better handling of connected and looping relationships.
 - Run the tool from an installed package or directly from a source checkout.
-- Bundle the Windows Python and Graphviz runtimes with their release and licensing information.
+- Bundle the Windows Python runtime with its release and licensing information; require Graphviz `dot.exe` on `PATH`.
 
 ### Changed
 

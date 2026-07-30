@@ -8,7 +8,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { LANGUAGES } from "../../src/languages";
 import { resolveSelectedPaths } from "../../src/umlGenerator";
-import { parseGenerationPayload, resolveBundledRuntime, resolveGraphvizOnPath, runScript } from "../../src/pythonRunner";
+import { parseGenerationPayload, resolveGraphvizOnPath, resolveRuntime, runScript } from "../../src/pythonRunner";
 import {
   cleanupSession,
   isSaveMessage,
@@ -168,7 +168,7 @@ suite("Extension Test Suite", () => {
   test("reports process rejection diagnostics", async () => {
     const runtime = {
       pythonExec: "C:\\runtime\\python.exe",
-      dotExec: "C:\\graphviz\\dot.exe",
+      dotExec: "C:\\tools\\dot.exe",
       env: {},
     };
     const run = async () => {
@@ -186,11 +186,11 @@ suite("Extension Test Suite", () => {
     );
   });
 
-  test("resolves the bundled Python runtime and Graphviz from PATH", () => {
+  test("resolves the bundled Python runtime and system Graphviz from PATH", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml runtime "));
     const extension = vscode.Uri.file(root);
     const python = path.join(root, "python-runtime", "python.exe");
-    const dot = path.join(root, "graphviz", "bin", "dot.exe");
+    const dot = path.join(root, "graphviz-system", "bin", "dot.exe");
     const systemRoot = path.join(root, "Windows");
     fs.mkdirSync(path.dirname(python), { recursive: true });
     fs.mkdirSync(path.dirname(dot), { recursive: true });
@@ -202,7 +202,7 @@ suite("Extension Test Suite", () => {
     fs.writeFileSync(path.join(systemRoot, "System32", "msvcp140.dll"), "");
     const parentPath = process.env.PATH;
     try {
-      const runtime = resolveBundledRuntime(extension, "win32", "x64", undefined, systemRoot, path.dirname(dot));
+      const runtime = resolveRuntime(extension, "win32", "x64", undefined, systemRoot, path.dirname(dot));
       assert.strictEqual(runtime.pythonExec, python);
       assert.strictEqual(runtime.dotExec, dot);
       assert.strictEqual(runtime.env.PYTHONNOUSERSITE, "1");
@@ -228,15 +228,15 @@ suite("Extension Test Suite", () => {
 
   test("rejects unsupported hosts and missing runtimes", () => {
     const extension = vscode.Uri.file(path.join(os.tmpdir(), "missing-runtime"));
-    assert.throws(() => resolveBundledRuntime(extension, "linux", "x64"), /only Windows x64.*linux-x64/);
-    assert.throws(() => resolveBundledRuntime(extension, "win32", "arm64"), /only Windows x64.*win32-arm64/);
-    assert.throws(() => resolveBundledRuntime(extension, "win32", "x64"), /python\.exe/);
+    assert.throws(() => resolveRuntime(extension, "linux", "x64"), /only Windows x64.*linux-x64/);
+    assert.throws(() => resolveRuntime(extension, "win32", "arm64"), /only Windows x64.*win32-arm64/);
+    assert.throws(() => resolveRuntime(extension, "win32", "x64"), /python\.exe/);
   });
 
   test("rejects Windows x64 remote extension hosts", () => {
     const extension = vscode.Uri.file(path.join(os.tmpdir(), "missing-runtime"));
     assert.throws(
-      () => resolveBundledRuntime(extension, "win32", "x64", "ssh-remote"),
+      () => resolveRuntime(extension, "win32", "x64", "ssh-remote"),
       /only local Windows x64.*ssh-remote/,
     );
   });
@@ -245,7 +245,7 @@ suite("Extension Test Suite", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml runtime "));
     const extension = vscode.Uri.file(root);
     const python = path.join(root, "python-runtime", "python.exe");
-    const dot = path.join(root, "graphviz", "bin", "dot.exe");
+    const dot = path.join(root, "graphviz-system", "bin", "dot.exe");
     const systemRoot = path.join(root, "Windows");
     fs.mkdirSync(path.dirname(python), { recursive: true });
     fs.mkdirSync(path.dirname(dot), { recursive: true });
@@ -257,7 +257,7 @@ suite("Extension Test Suite", () => {
 
     try {
       assert.throws(
-        () => resolveBundledRuntime(extension, "win32", "x64", undefined, systemRoot),
+        () => resolveRuntime(extension, "win32", "x64", undefined, systemRoot),
         /Microsoft Visual C\+\+ 2015-2022 Redistributable x64.*https:\/\/aka\.ms\/vs\/17\/release\/vc_redist\.x64\.exe/,
       );
     } finally {

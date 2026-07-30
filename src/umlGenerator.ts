@@ -4,7 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import { uploadFiles, saveFile } from "./filePicker";
 import { LANGUAGES, LanguageId } from "./languages";
-import { resolveBundledRuntime, runScript } from "./pythonRunner";
+import { resolveRuntime, runScript } from "./pythonRunner";
 import { cleanupSession, savePreview, showPreview } from "./previewPanel";
 
 export function resolveSelectedPaths(
@@ -59,7 +59,7 @@ export async function generateUML(
     }
 
     vscode.window.showInformationMessage("Launching UML generator...");
-    const runtime = resolveBundledRuntime(context.extensionUri);
+    const runtime = resolveRuntime(context.extensionUri);
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml-preview-"));
     const svgPath = path.join(tempDir, "preview.svg");
     const baseArgs = ["-t", language, "-p", ...paths];
