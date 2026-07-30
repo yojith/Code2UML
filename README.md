@@ -1,5 +1,7 @@
 # python2uml
 
+[![Build](https://github.com/yojith/python2uml/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/yojith/python2uml/actions/workflows/build.yml) [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-yojith.python2uml-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=yojith.python2uml) [![License](https://img.shields.io/github/license/yojith/python2uml)](https://github.com/yojith/python2uml/blob/main/LICENSE.txt) [![Languages](https://img.shields.io/badge/languages-Python%20%7C%20Java%20%7C%20C%2B%2B%20%7C%20C-3776AB)](#)
+
 Generate UML-style diagrams from Python, Java, C++, and C projects in VS Code or from the command line.
 
 Python is parsed with the standard-library `ast` module. Java, C++, and C use the official Tree-sitter grammar packages `tree-sitter-java`, `tree-sitter-cpp`, and `tree-sitter-c`. All four adapters produce the same normalized model before shared analysis and rendering.

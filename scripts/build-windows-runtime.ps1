@@ -42,7 +42,15 @@ function Remove-GeneratedDirectory([string]$Path) {
 }
 
 function Get-Sha256([string]$Path) {
-    (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        ([BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $stream.Dispose()
+        $algorithm.Dispose()
+    }
 }
 
 function Get-VerifiedDownload([string]$Uri, [string]$Sha256, [string]$Destination) {
@@ -77,7 +85,7 @@ try {
     $sitePackages = Join-Path $pythonRuntime 'Lib\site-packages'
     & uv pip install --python $BuildPython --only-binary=:all: --requirement $requirements --target $sitePackages
     if ($LASTEXITCODE -ne 0) { throw 'Production dependency installation failed.' }
-    & uv pip install --python $BuildPython --no-deps --no-build-isolation --target $sitePackages $repositoryRoot
+    & uv pip install --python $BuildPython --no-deps --target $sitePackages $repositoryRoot
     if ($LASTEXITCODE -ne 0) { throw 'Backend installation failed.' }
 
     $targetLock = Join-Path $sitePackages '.lock'
