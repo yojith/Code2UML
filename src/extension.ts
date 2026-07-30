@@ -3,6 +3,7 @@
 import * as vscode from "vscode";
 import { generateUML } from "./umlGenerator";
 import { LANGUAGES } from "./languages";
+import { resolveGraphvizOnPath } from "./pythonRunner";
 
 class UMLActionItem extends vscode.TreeItem {
   constructor(
@@ -37,6 +38,13 @@ export function activate(context: vscode.ExtensionContext) {
   // Use the console to output diagnostic information (console.log) and errors (console.error)
   // This line of code will only be executed once when your extension is activated
   console.log('Congratulations, your extension "python2uml" is now active!');
+  if (process.platform === "win32" && process.arch === "x64" && !vscode.env.remoteName) {
+    try {
+      resolveGraphvizOnPath();
+    } catch (error) {
+      vscode.window.showWarningMessage(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   // The command has been defined in the package.json file
   // Now provide the implementation of the command with registerCommand

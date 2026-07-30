@@ -17,7 +17,7 @@ from python2uml.renderers.drawio_renderer import DrawioRenderer
 from python2uml.renderers.graphviz_renderer import GraphvizRenderer, get_dot_executable
 
 
-BUNDLED_DOT = Path("C:/python2uml/graphviz/bin/dot.exe")
+DOT_ON_PATH = Path("C:/graphviz/bin/dot.exe")
 
 
 def diagram_with_every_style() -> UMLDiagram:
@@ -88,46 +88,27 @@ def graphviz_layout_json(
 
 def graphviz_result(layout: dict[str, object] | str) -> subprocess.CompletedProcess[str]:
     stdout = layout if isinstance(layout, str) else json.dumps(layout)
-    return subprocess.CompletedProcess([str(BUNDLED_DOT), "-Tjson"], 0, stdout, "")
+    return subprocess.CompletedProcess([str(DOT_ON_PATH), "-Tjson"], 0, stdout, "")
 
 
 def render_drawio_with_layout(diagram: UMLDiagram, output: Path, layout: dict[str, object] | None = None):
     with (
-        patch("python2uml.renderers.drawio_renderer.get_dot_executable", return_value=BUNDLED_DOT),
+        patch("python2uml.renderers.drawio_renderer.get_dot_executable", return_value=DOT_ON_PATH),
         patch("python2uml.renderers.drawio_renderer.subprocess.run", return_value=graphviz_result(layout or graphviz_layout_json(diagram))) as run,
     ):
         DrawioRenderer().render(diagram, str(output))
     return run
 
 
-def test_graphviz_requires_bundled_dot(monkeypatch, tmp_path: Path):
-    monkeypatch.delenv("EXTENSION_GRAPHVIZ_DOT", raising=False)
-    with pytest.raises(RuntimeError, match="was not supplied"):
+def test_graphviz_requires_dot_on_path(monkeypatch, tmp_path: Path):
+    with patch("python2uml.renderers.graphviz_renderer.shutil.which", return_value=None), pytest.raises(RuntimeError, match="not found on PATH"):
         get_dot_executable()
 
-    monkeypatch.setenv("EXTENSION_GRAPHVIZ_DOT", "dot.exe")
-    with pytest.raises(RuntimeError, match="absolute"):
-        get_dot_executable()
-
-    missing = tmp_path / "graphviz" / "bin" / "dot.exe"
-    monkeypatch.setenv("EXTENSION_GRAPHVIZ_DOT", str(missing))
-    with pytest.raises(RuntimeError, match="was not found"):
-        get_dot_executable()
-
-
-def test_graphviz_requires_path_to_resolve_the_configured_dot(monkeypatch, tmp_path: Path):
-    configured = tmp_path / "graphviz" / "bin" / "dot.exe"
-    configured.parent.mkdir(parents=True)
-    configured.write_bytes(b"")
-    other = tmp_path / "system" / "dot.exe"
-    other.parent.mkdir()
-    other.write_bytes(b"")
-    monkeypatch.setenv("EXTENSION_GRAPHVIZ_DOT", str(configured))
-
-    with patch("python2uml.renderers.graphviz_renderer.shutil.which", return_value=str(other)), pytest.raises(RuntimeError, match="does not match"):
-        get_dot_executable()
-    with patch("python2uml.renderers.graphviz_renderer.shutil.which", return_value=str(configured)):
-        assert get_dot_executable() == configured.resolve()
+    dot = tmp_path / "graphviz" / "bin" / "dot.exe"
+    dot.parent.mkdir(parents=True)
+    dot.write_bytes(b"")
+    with patch("python2uml.renderers.graphviz_renderer.shutil.which", return_value=str(dot)):
+        assert get_dot_executable() == dot.resolve()
 
 
 def test_graphviz_source_maps_every_class_kind_and_relationship_style():
@@ -255,7 +236,7 @@ def test_drawio_uses_graphviz_node_rectangles_and_real_class_dimensions(tmp_path
     dot_source = run.call_args.kwargs["input"]
     assert "node_1 [shape=box, fixedsize=true, width=3.333333, height=1.138889];" in dot_source
     assert "node_2 [shape=box, fixedsize=true, width=3.333333, height=1.750000];" in dot_source
-    run.assert_called_once_with([str(BUNDLED_DOT), "-Tjson"], input=dot_source, text=True, capture_output=True, check=True)
+    run.assert_called_once_with([str(DOT_ON_PATH), "-Tjson"], input=dot_source, text=True, capture_output=True, check=True)
 
 
 def test_drawio_layout_edges_ignore_relationship_type_but_xml_styles_do_not(tmp_path: Path):
@@ -411,7 +392,7 @@ def test_drawio_rejects_unusable_graphviz_json_geometry(tmp_path: Path, case: st
         layout["edges"][0]["pos"] = "10,10 20,20"
 
     with (
-        patch("python2uml.renderers.drawio_renderer.get_dot_executable", return_value=BUNDLED_DOT),
+        patch("python2uml.renderers.drawio_renderer.get_dot_executable", return_value=DOT_ON_PATH),
         patch("python2uml.renderers.drawio_renderer.subprocess.run", return_value=graphviz_result(layout)),
         pytest.raises(RuntimeError, match=message),
     ):

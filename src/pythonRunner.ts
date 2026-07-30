@@ -15,6 +15,8 @@ export interface BundledRuntime {
   env: NodeJS.ProcessEnv;
 }
 
+export const GRAPHVIZ_NOT_FOUND_MESSAGE = "Graphviz dot.exe was not found on PATH. Install Graphviz for Windows, add its bin directory to PATH, then restart VS Code.";
+
 export interface SourceDiagnostic {
   path: string;
   line: number;
@@ -78,12 +80,25 @@ function requireVisualCppRuntime(systemRoot: string | undefined): void {
   throw new Error("Python2UML requires the Microsoft Visual C++ 2015-2022 Redistributable x64. Install it from https://aka.ms/vs/17/release/vc_redist.x64.exe and restart VS Code.");
 }
 
+export function resolveGraphvizOnPath(pathValue = process.env.PATH ?? ""): string {
+  for (const directory of pathValue.split(path.delimiter)) {
+    const dotExec = path.join(directory, "dot.exe");
+    try {
+      if (fs.statSync(dotExec).isFile()) {
+        return dotExec;
+      }
+    } catch {}
+  }
+  throw new Error(GRAPHVIZ_NOT_FOUND_MESSAGE);
+}
+
 export function resolveBundledRuntime(
   extensionUri: Uri,
   platform = process.platform,
   architecture = process.arch,
   remoteName = env.remoteName,
   systemRoot = process.env.SystemRoot ?? process.env.WINDIR,
+  graphvizPath = process.env.PATH ?? "",
 ): BundledRuntime {
   if (remoteName) {
     throw new Error(`Python2UML currently supports only local Windows x64 extension hosts; detected remote host ${remoteName} on ${platform}-${architecture}`);
@@ -93,18 +108,14 @@ export function resolveBundledRuntime(
   }
   const extensionPath = `${extensionUri.fsPath[0].toUpperCase()}${extensionUri.fsPath.slice(1)}`;
   const pythonExec = path.join(extensionPath, "python-runtime", "python.exe");
-  const dotExec = path.join(extensionPath, "graphviz", "bin", "dot.exe");
   requireFile(pythonExec, "Bundled Python executable");
-  requireFile(dotExec, "Bundled Graphviz executable");
   requireVisualCppRuntime(systemRoot);
-  const graphvizBin = path.dirname(dotExec);
+  const dotExec = resolveGraphvizOnPath(graphvizPath);
   return {
     pythonExec,
     dotExec,
     env: {
       ...process.env,
-      PATH: `${graphvizBin}${path.delimiter}${process.env.PATH ?? ""}`,
-      EXTENSION_GRAPHVIZ_DOT: dotExec,
       PYTHONNOUSERSITE: "1",
       PYTHONUNBUFFERED: "1",
     },

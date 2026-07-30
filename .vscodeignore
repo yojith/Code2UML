@@ -35,7 +35,9 @@ tsconfig.json
 build/**
 runtime-downloads/**
 !python-runtime/**
-!graphviz/**
 !licenses/**
-!third-party-source-provenance/**
 !THIRD_PARTY_NOTICES.md
+graphviz/**
+third-party-source-provenance/**
+htmlcov/**
+python-runtime/**/__pycache__/**

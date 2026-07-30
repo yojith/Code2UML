@@ -23,20 +23,7 @@ jobs:
           enable-cache: true
       - run: npm ci
       - run: uv sync --frozen
-      - name: Restore vcpkg source downloads
-        uses: actions/cache@v4
-        with:
-          path: runtime-downloads/vcpkg-downloads
-          key: vcpkg-downloads-windows-x64-v1-${{ hashFiles('scripts/build-windows-runtime.ps1', 'scripts/graphviz-msvc-stdalign.diff') }}
       - run: npm run build:runtime:win32-x64
-      - name: Smoke test bundled draw.io layout
-        shell: pwsh
-        run: |
-          $env:EXTENSION_GRAPHVIZ_DOT = (Resolve-Path graphviz\bin\dot.exe)
-          $env:PATH = "$(Split-Path $env:EXTENSION_GRAPHVIZ_DOT);$env:PATH"
-          $env:PYTHONDONTWRITEBYTECODE = "1"
-          & .\python-runtime\python.exe -m python2uml -t python -o smoke.drawio -p tests\fixtures\python\project1
-          if ($LASTEXITCODE -ne 0 -or -not (Test-Path smoke.drawio)) { throw 'Bundled draw.io layout smoke test failed.' }
       - run: npm run package -- --target win32-x64 --out python2uml-win32-x64-${{ github.sha }}.vsix
       - name: Inspect VSIX
         shell: pwsh
