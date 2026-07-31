@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Rebranded the VS Code extension as Code2UML and renamed its internal VS Code command namespace to `code2uml.*`; the published Marketplace and Python package identifiers remain `python2uml` for compatibility.
-
 ## [0.1.1] - 2026-07-28
 
 ### Added
@@ -25,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Simplified the repository layout and split CI into separate build, test, and release workflows.
 - Improved the packaged extension and added checks for its runtime, draw.io output, and VSIX contents.
+- Rebranded the VS Code extension as Code2UML and renamed its internal VS Code command namespace to `code2uml.*`; the published Marketplace and Python package identifiers remain `python2uml` for compatibility.
 
 ### Fixed
 
