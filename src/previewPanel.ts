@@ -183,7 +183,7 @@ export function cleanupSession(tempDir: string, svgPath: string): void {
 
 export function showPreview(session: GenerationSession, extensionUri: vscode.Uri): vscode.WebviewPanel {
   const panel = vscode.window.createWebviewPanel(
-    "python2uml.preview",
+    "code2uml.preview",
     "UML Preview",
     vscode.ViewColumn.Active,
     { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")] },

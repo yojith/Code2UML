@@ -1,6 +1,6 @@
-# python2uml
+# Code2UML
 
-[![Build](https://github.com/yojith/python2uml/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/yojith/python2uml/actions/workflows/build.yml) [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-yojith.python2uml-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=yojith.python2uml) [![License](https://img.shields.io/github/license/yojith/python2uml)](https://github.com/yojith/python2uml/blob/main/LICENSE.txt) [![Languages](https://img.shields.io/badge/languages-Python%20%7C%20Java%20%7C%20C%2B%2B%20%7C%20C-3776AB)](#)
+[![Build](https://github.com/yojith/Code2UML/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/yojith/Code2UML/actions/workflows/build.yml) [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Code2UML-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=yojith.python2uml) [![License](https://img.shields.io/github/license/yojith/Code2UML)](https://github.com/yojith/Code2UML/blob/main/LICENSE.txt) [![Languages](https://img.shields.io/badge/languages-Python%20%7C%20Java%20%7C%20C%2B%2B%20%7C%20C-3776AB)](#)
 
 Generate UML-style diagrams from Python, Java, C++, and C projects in VS Code or from the command line.
 
@@ -24,7 +24,7 @@ On macOS or Linux, use `.venv/bin/python` instead.
 
 ## VS Code workflow
 
-Choose **Generate UML for Python**, **Java**, **C++**, or **C** from the Python2UML Activity Bar, Command Palette, or Explorer's **Generate UML for...** submenu. Activity Bar and Command Palette commands open a language-filtered picker that accepts multiple files and folders. Explorer multi-selection analyzes compatible resources together, recursively filters folders, deduplicates paths, and warns about skipped incompatible entries.
+Choose **Generate UML for Python**, **Java**, **C++**, or **C** from the Code2UML Activity Bar, Command Palette, or Explorer's **Generate UML for...** submenu. Activity Bar and Command Palette commands open a language-filtered picker that accepts multiple files and folders. Explorer multi-selection analyzes compatible resources together, recursively filters folders, deduplicates paths, and warns about skipped incompatible entries.
 
 Generation opens a temporary SVG preview. The webview lists source diagnostics separately and offers **Save As...**. Saving SVG copies the preview; PNG, PDF, JPG, and draw.io selections rerender the same inputs. Closing the preview removes its temporary session files.
 
@@ -43,7 +43,7 @@ The CLI is supported from a cloned source checkout. It is not separately distrib
 ```powershell
 & .\.venv\Scripts\python.exe -m python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
 uvx --from . python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
-uvx --from "C:\path\to\python2uml" python2uml --project-type java --output diagram.svg --paths "C:\path\to\sources"
+uvx --from "C:\path\to\Code2UML" python2uml --project-type java --output diagram.svg --paths "C:\path\to\sources"
 ```
 
 uv is optional for ordinary source CLI invocation, required only when assembling the extension runtime, and not required by Marketplace users.

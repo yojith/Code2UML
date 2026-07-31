@@ -1,1 +1,1 @@
-"""Python2UML analysis and rendering package."""
+"""Code2UML analysis and rendering package."""

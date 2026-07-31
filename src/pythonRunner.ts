@@ -77,7 +77,7 @@ function requireVisualCppRuntime(systemRoot: string | undefined): void {
   if (systemDirectory && requiredFiles.every((file) => fs.existsSync(path.join(systemDirectory, file)))) {
     return;
   }
-  throw new Error("Python2UML requires the Microsoft Visual C++ 2015-2022 Redistributable x64. Install it from https://aka.ms/vs/17/release/vc_redist.x64.exe and restart VS Code.");
+  throw new Error("Code2UML requires the Microsoft Visual C++ 2015-2022 Redistributable x64. Install it from https://aka.ms/vs/17/release/vc_redist.x64.exe and restart VS Code.");
 }
 
 export function resolveGraphvizOnPath(pathValue = process.env.PATH ?? ""): string {
@@ -101,10 +101,10 @@ export function resolveRuntime(
   graphvizPath = process.env.PATH ?? "",
 ): ExtensionRuntime {
   if (remoteName) {
-    throw new Error(`Python2UML currently supports only local Windows x64 extension hosts; detected remote host ${remoteName} on ${platform}-${architecture}`);
+    throw new Error(`Code2UML currently supports only local Windows x64 extension hosts; detected remote host ${remoteName} on ${platform}-${architecture}`);
   }
   if (platform !== "win32" || architecture !== "x64") {
-    throw new Error(`Python2UML currently supports only Windows x64; detected ${platform}-${architecture}`);
+    throw new Error(`Code2UML currently supports only Windows x64; detected ${platform}-${architecture}`);
   }
   const extensionPath = `${extensionUri.fsPath[0].toUpperCase()}${extensionUri.fsPath.slice(1)}`;
   const pythonExec = path.join(extensionPath, "python-runtime", "python.exe");

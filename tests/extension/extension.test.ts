@@ -31,22 +31,22 @@ suite("Extension Test Suite", () => {
         {
           id: "python",
           extensions: ["py"],
-          commandId: "python2uml.generatePython",
+          commandId: "code2uml.generatePython",
         },
         {
           id: "java",
           extensions: ["java"],
-          commandId: "python2uml.generateJava",
+          commandId: "code2uml.generateJava",
         },
         {
           id: "cpp",
           extensions: ["cpp", "cc", "cxx", "hpp", "hh", "h"],
-          commandId: "python2uml.generateCpp",
+          commandId: "code2uml.generateCpp",
         },
         {
           id: "c",
           extensions: ["c", "h"],
-          commandId: "python2uml.generateC",
+          commandId: "code2uml.generateC",
         },
       ],
     );
@@ -57,13 +57,13 @@ suite("Extension Test Suite", () => {
 
     assert.deepStrictEqual(manifest.contributes.menus["explorer/context"], [
       {
-        submenu: "python2uml.generate",
+        submenu: "code2uml.generate",
         when: "resourceScheme == file",
         group: "navigation",
       },
     ]);
     assert.deepStrictEqual(
-      manifest.contributes.menus["python2uml.generate"].map(
+        manifest.contributes.menus["code2uml.generate"].map(
         ({ command }: { command: string }) => command,
       ),
       LANGUAGES.map(({ commandId }) => commandId),

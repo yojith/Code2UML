@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Simplified the repository layout and split CI into separate build, test, and release workflows.
 - Improved the packaged extension and added checks for its runtime, draw.io output, and VSIX contents.
+- Rebranded the VS Code extension as Code2UML and renamed its internal VS Code command namespace to `code2uml.*`; the published Marketplace and Python package identifiers remain `python2uml` for compatibility.
 
 ### Fixed
 
@@ -38,6 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added VS Code commands for generating diagrams from Python files and folders
 - Added Graphviz-based rendering with UML-style edge handling
 
-[unreleased]: https://github.com/yojith/Python2UML/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/yojith/Python2UML/releases/tag/v0.1.1
-[0.1.0]: https://github.com/yojith/Python2UML/releases/tag/v0.1.0
+[unreleased]: https://github.com/yojith/Code2UML/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/yojith/Code2UML/releases/tag/v0.1.1
+[0.1.0]: https://github.com/yojith/Code2UML/releases/tag/v0.1.0

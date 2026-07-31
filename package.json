@@ -1,12 +1,12 @@
 {
   "name": "python2uml",
-  "displayName": "Python2UML",
+  "displayName": "Code2UML",
   "description": "",
   "version": "0.1.1",
   "publisher": "yojith",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yojith/python2uml"
+    "url": "https://github.com/yojith/Code2UML"
   },
   "engines": {
     "vscode": "^1.108.0"
@@ -20,64 +20,64 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "python2uml",
-          "title": "Python2UML",
+          "id": "code2uml",
+          "title": "Code2UML",
           "icon": "media/python2uml.svg"
         }
       ]
     },
     "views": {
-      "python2uml": [
+      "code2uml": [
         {
-          "id": "python2uml.actions",
+          "id": "code2uml.actions",
           "name": "Actions"
         }
       ]
     },
     "commands": [
       {
-        "command": "python2uml.generatePython",
+        "command": "code2uml.generatePython",
         "title": "Generate UML for Python"
       },
       {
-        "command": "python2uml.generateJava",
+        "command": "code2uml.generateJava",
         "title": "Generate UML for Java"
       },
       {
-        "command": "python2uml.generateCpp",
+        "command": "code2uml.generateCpp",
         "title": "Generate UML for C++"
       },
       {
-        "command": "python2uml.generateC",
+        "command": "code2uml.generateC",
         "title": "Generate UML for C"
       }
     ],
     "submenus": [
       {
-        "id": "python2uml.generate",
+        "id": "code2uml.generate",
         "label": "Generate UML for..."
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "submenu": "python2uml.generate",
+          "submenu": "code2uml.generate",
           "when": "resourceScheme == file",
           "group": "navigation"
         }
       ],
-      "python2uml.generate": [
+      "code2uml.generate": [
         {
-          "command": "python2uml.generatePython"
+          "command": "code2uml.generatePython"
         },
         {
-          "command": "python2uml.generateJava"
+          "command": "code2uml.generateJava"
         },
         {
-          "command": "python2uml.generateCpp"
+          "command": "code2uml.generateCpp"
         },
         {
-          "command": "python2uml.generateC"
+          "command": "code2uml.generateC"
         }
       ]
     }
