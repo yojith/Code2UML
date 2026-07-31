@@ -1,4 +1,4 @@
-name: Build extension artifact
+name: Build extension artifacts
 
 on:
   push:
@@ -9,29 +9,34 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: win32-x64, os: windows-latest }
+          - { target: linux-x64, os: ubuntu-latest }
+          - { target: linux-arm64, os: ubuntu-24.04-arm }
+          - { target: darwin-x64, os: macos-13 }
+          - { target: darwin-arm64, os: macos-14 }
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: "24.x"
           cache: npm
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          architecture: x64
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - run: npm ci
       - run: uv sync --frozen
-      - run: npm run build:runtime:win32-x64
-      - run: npm run package -- --target win32-x64 --out python2uml-win32-x64-${{ github.sha }}.vsix
+      - run: npm run build:runtime:${{ matrix.target }}
+      - run: npm run package -- --target ${{ matrix.target }} --out python2uml-${{ matrix.target }}-${{ github.sha }}.vsix
       - name: Inspect VSIX
         shell: pwsh
-        run: ./scripts/verify-windows-vsix.ps1 "python2uml-win32-x64-${{ github.sha }}.vsix"
+        run: ./scripts/verify-vsix.ps1 "python2uml-${{ matrix.target }}-${{ github.sha }}.vsix" "${{ matrix.target }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: python2uml-win32-x64-vsix-${{ github.sha }}
-          path: python2uml-win32-x64-${{ github.sha }}.vsix
+          name: python2uml-${{ matrix.target }}-vsix-${{ github.sha }}
+          path: python2uml-${{ matrix.target }}-${{ github.sha }}.vsix
           if-no-files-found: error

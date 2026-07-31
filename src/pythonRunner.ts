@@ -15,7 +15,7 @@ export interface ExtensionRuntime {
   env: NodeJS.ProcessEnv;
 }
 
-export const GRAPHVIZ_NOT_FOUND_MESSAGE = "Graphviz dot.exe was not found on PATH. Install Graphviz for Windows, add its bin directory to PATH, then restart VS Code.";
+export const GRAPHVIZ_NOT_FOUND_MESSAGE = "Graphviz dot was not found on PATH. Install Graphviz, add its bin directory to PATH, then restart VS Code.";
 
 export interface SourceDiagnostic {
   path: string;
@@ -80,9 +80,10 @@ function requireVisualCppRuntime(systemRoot: string | undefined): void {
   throw new Error("Code2UML requires the Microsoft Visual C++ 2015-2022 Redistributable x64. Install it from https://aka.ms/vs/17/release/vc_redist.x64.exe and restart VS Code.");
 }
 
-export function resolveGraphvizOnPath(pathValue = process.env.PATH ?? ""): string {
+export function resolveGraphvizOnPath(pathValue = process.env.PATH ?? "", platform = process.platform): string {
+  const executable = platform === "win32" ? "dot.exe" : "dot";
   for (const directory of pathValue.split(path.delimiter)) {
-    const dotExec = path.join(directory, "dot.exe");
+    const dotExec = path.join(directory, executable);
     try {
       if (fs.statSync(dotExec).isFile()) {
         return dotExec;
@@ -101,16 +102,18 @@ export function resolveRuntime(
   graphvizPath = process.env.PATH ?? "",
 ): ExtensionRuntime {
   if (remoteName) {
-    throw new Error(`Code2UML currently supports only local Windows x64 extension hosts; detected remote host ${remoteName} on ${platform}-${architecture}`);
+    throw new Error(`Code2UML currently supports only local extension hosts; detected remote host ${remoteName} on ${platform}-${architecture}`);
   }
-  if (platform !== "win32" || architecture !== "x64") {
-    throw new Error(`Code2UML currently supports only Windows x64; detected ${platform}-${architecture}`);
+  if (!(["win32", "linux", "darwin"] as string[]).includes(platform) || !(["x64", "arm64"] as string[]).includes(architecture) || (platform === "win32" && architecture !== "x64")) {
+    throw new Error(`Code2UML does not support this local host; detected ${platform}-${architecture}`);
   }
   const extensionPath = `${extensionUri.fsPath[0].toUpperCase()}${extensionUri.fsPath.slice(1)}`;
-  const pythonExec = path.join(extensionPath, "python-runtime", "python.exe");
+  const pythonExec = path.join(extensionPath, "python-runtime", platform === "win32" ? "python.exe" : "bin", platform === "win32" ? "" : "python");
   requireFile(pythonExec, "Bundled Python executable");
-  requireVisualCppRuntime(systemRoot);
-  const dotExec = resolveGraphvizOnPath(graphvizPath);
+  if (platform === "win32") {
+    requireVisualCppRuntime(systemRoot);
+  }
+  const dotExec = resolveGraphvizOnPath(graphvizPath, platform);
   const runtimeEnv = {
     ...process.env,
     PATH: process.env.PATH,

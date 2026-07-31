@@ -6,7 +6,16 @@ on:
 
 jobs:
   release:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: win32-x64, os: windows-latest }
+          - { target: linux-x64, os: ubuntu-latest }
+          - { target: linux-arm64, os: ubuntu-24.04-arm }
+          - { target: darwin-x64, os: macos-13 }
+          - { target: darwin-arm64, os: macos-14 }
+    runs-on: ${{ matrix.os }}
     environment: marketplace-production
     permissions:
       contents: write
@@ -19,10 +28,6 @@ jobs:
         with:
           node-version: "24.x"
           cache: npm
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          architecture: x64
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
@@ -33,15 +38,15 @@ jobs:
       - run: npm run compile
       - run: npm run lint
       - run: npm test
-      - run: npm run build:runtime:win32-x64
-      - run: npm run package -- --target win32-x64 --out python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix
+      - run: npm run build:runtime:${{ matrix.target }}
+      - run: npm run package -- --target ${{ matrix.target }} --out python2uml-${{ matrix.target }}-${{ github.event.release.tag_name }}.vsix
       - name: Inspect VSIX
         shell: pwsh
-        run: ./scripts/verify-windows-vsix.ps1 "python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix"
+        run: ./scripts/verify-vsix.ps1 "python2uml-${{ matrix.target }}-${{ github.event.release.tag_name }}.vsix" "${{ matrix.target }}"
       - name: Attach VSIX to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" "python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix" --clobber
+        run: gh release upload "${{ github.event.release.tag_name }}" "python2uml-${{ matrix.target }}-${{ github.event.release.tag_name }}.vsix" --clobber
       - name: Sign in to Azure
         uses: azure/login@v2
         with:
@@ -49,4 +54,4 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - name: Publish to VS Code Marketplace
-        run: npx vsce publish --packagePath python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix --azure-credential
+        run: npx vsce publish --packagePath python2uml-${{ matrix.target }}-${{ github.event.release.tag_name }}.vsix --azure-credential
