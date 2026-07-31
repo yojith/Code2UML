@@ -9,7 +9,7 @@ jobs:
     runs-on: windows-latest
     environment: marketplace-production
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@v6
@@ -38,6 +38,10 @@ jobs:
       - name: Inspect VSIX
         shell: pwsh
         run: ./scripts/verify-windows-vsix.ps1 "python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix"
+      - name: Attach VSIX to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix" --clobber
       - name: Sign in to Azure
         uses: azure/login@v2
         with:
