@@ -1,4 +1,4 @@
-"""Run Python2UML as a module."""
+"""Run Code2UML as a module."""
 
 from python2uml.cli import main
 

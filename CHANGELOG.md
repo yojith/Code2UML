@@ -38,6 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added VS Code commands for generating diagrams from Python files and folders
 - Added Graphviz-based rendering with UML-style edge handling
 
-[unreleased]: https://github.com/yojith/Python2UML/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/yojith/Python2UML/releases/tag/v0.1.1
-[0.1.0]: https://github.com/yojith/Python2UML/releases/tag/v0.1.0
+[unreleased]: https://github.com/yojith/Code2UML/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/yojith/Code2UML/releases/tag/v0.1.1
+[0.1.0]: https://github.com/yojith/Code2UML/releases/tag/v0.1.0

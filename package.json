@@ -1,12 +1,12 @@
 {
   "name": "python2uml",
-  "displayName": "Python2UML",
+  "displayName": "Code2UML",
   "description": "",
   "version": "0.1.1",
   "publisher": "yojith",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yojith/python2uml"
+    "url": "https://github.com/yojith/Code2UML"
   },
   "engines": {
     "vscode": "^1.108.0"
@@ -21,7 +21,7 @@
       "activitybar": [
         {
           "id": "python2uml",
-          "title": "Python2UML",
+          "title": "Code2UML",
           "icon": "media/python2uml.svg"
         }
       ]
