@@ -1,76 +1,44 @@
 # Code2UML
 
-[![Build](https://github.com/yojith/Code2UML/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/yojith/Code2UML/actions/workflows/build.yml) [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Code2UML-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=yojith.python2uml) [![License](https://img.shields.io/github/license/yojith/Code2UML)](https://github.com/yojith/Code2UML/blob/main/LICENSE.txt) [![Languages](https://img.shields.io/badge/languages-Python%20%7C%20Java%20%7C%20C%2B%2B%20%7C%20C-3776AB)](#)
+[![Build](https://github.com/yojith/Code2UML/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/yojith/Code2UML/actions/workflows/build.yml) [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Code2UML-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=yojith.python2uml) [![License](https://img.shields.io/github/license/yojith/Code2UML)](https://github.com/yojith/Code2UML/blob/main/LICENSE.txt)
 
-Generate UML-style diagrams from Python, Java, C++, and C projects in VS Code or from the command line.
+Generate UML diagrams from Python, Java, C++, and C projects.
 
-Python is parsed with the standard-library `ast` module. Java, C++, and C use the official Tree-sitter grammar packages `tree-sitter-java`, `tree-sitter-cpp`, and `tree-sitter-c`. All four adapters produce the same normalized model before shared analysis and rendering.
+## Use it in VS Code
+
+Install Code2UML from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=yojith.python2uml). Then you can:
+
+- Open the **Code2UML** icon in the Activity Bar and choose a language.
+- Press `Ctrl+Shift+P` and run **Generate UML for...**.
+- Right-click a file or folder in Explorer and choose **Generate UML for...**.
+
+The preview can save diagrams as SVG, PNG, PDF, JPG, or draw.io files.
 
 ## Requirements
 
-The Marketplace extension requires a Windows x64 extension host. It bundles its own Python runtime, so no separate Python, virtual environment, or pip installation is needed. It requires Graphviz `dot.exe` on `PATH`; install Graphviz, add its `bin` directory to `PATH`, then restart VS Code.
+The packaged extension supports Windows x64 and includes its own Python runtime. You do not need to install Python or pip.
 
-The bundled Python runtime depends on the Microsoft Visual C++ 2015-2022 Redistributable x64 runtime. Install the official Microsoft x64 redistributable before using the packaged extension if Windows reports that a VC++ runtime DLL is missing.
+Install [Graphviz](https://graphviz.org/download/), add the directory containing `dot.exe` to `PATH`, and restart VS Code. Code2UML uses Graphviz to lay out and render diagrams.
 
-WSL, remote extension hosts (including SSH and dev containers), Windows ARM64, Linux, and macOS are not supported.
+## Command line
 
-Source CLI development requires Python 3.11 or newer. All output, including draw.io, requires [Graphviz](https://graphviz.org/download/) with `dot.exe` on `PATH`. Install the project and test tools from `pyproject.toml`:
+The CLI is available from a source checkout. It accepts one project type (`python`, `java`, `cpp`, or `c`) and one or more files or folders:
 
 ```powershell
-& .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+& .\.venv\Scripts\python.exe -m python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
 ```
 
-On macOS or Linux, use `.venv/bin/python` instead.
+Graphviz must also be available on `PATH` when using the CLI.
 
-## VS Code workflow
+## Developer build
 
-Choose **Generate UML for Python**, **Java**, **C++**, or **C** from the Code2UML Activity Bar, Command Palette, or Explorer's **Generate UML for...** submenu. Activity Bar and Command Palette commands open a language-filtered picker that accepts multiple files and folders. Explorer multi-selection analyzes compatible resources together, recursively filters folders, deduplicates paths, and warns about skipped incompatible entries.
-
-Generation opens a temporary SVG preview. The webview lists source diagnostics separately and offers **Save As...**. Saving SVG copies the preview; PNG, PDF, JPG, and draw.io selections rerender the same inputs. Closing the preview removes its temporary session files.
-
-Before testing the extension in an Extension Development Host on Windows x64, assemble the bundled Python runtime:
-
-Runtime assembly requires [uv](https://docs.astral.sh/uv/) on `PATH` to install the locked build and production dependencies.
+The extension's Python runtime is generated into `python-runtime/` and packaged with the VSIX. From a Windows x64 development environment, build it with:
 
 ```powershell
 npm run build:runtime:win32-x64
 ```
 
-## CLI
-
-The CLI is supported from a cloned source checkout. It is not separately distributed and Marketplace users do not need it. With `dot.exe` on `PATH`, pass one language and one or more files or folders:
-
-```powershell
-& .\.venv\Scripts\python.exe -m python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
-uvx --from . python2uml --project-type java --output diagram.svg --paths tests\fixtures\java\project1
-uvx --from "C:\path\to\Code2UML" python2uml --project-type java --output diagram.svg --paths "C:\path\to\sources"
-```
-
-uv is optional for ordinary source CLI invocation, required only when assembling the extension runtime, and not required by Marketplace users.
-
-Project types are `python`, `java`, `cpp`, and `c`. The output extension selects a Graphviz format; `.drawio` selects draw.io XML using the same Graphviz layout engine and fails with its availability or geometry error when Graphviz cannot provide a layout. A successful run writes one JSON object to stdout containing `output`, `documents`, `classes`, `relationships`, and `diagnostics`; `documents` lists the absolute source-file paths actually analyzed in deterministic collection order. Invalid input, an unusable model, or rendering failure writes an error to stderr and exits nonzero. Recoverable parser errors remain in `diagnostics` while valid declarations are rendered.
-
-## Model behavior and limits
-
-- Interfaces, abstract classes, inheritance, implementation, association, aggregation, composition, and nesting are inferred from normalized declarations and ownership evidence.
-- C files and headers become file classes; structs are nested classes, macros/globals are attributes, and struct-pointer receiver functions become struct methods.
-- A relationship is emitted only when both endpoints are declared in the analyzed project. External names remain visible in signatures but do not create placeholder nodes or edges.
-- Analysis is heuristic, single-language, and source-based. It does not run a compiler, perform full semantic type resolution, infer runtime ownership, or analyze mixed-language projects.
-- When evidence competes for one source-target pair, composition wins over aggregation, which wins over association.
-
-## Fixtures and tests
-
-The eight maintained fixtures live under `tests/fixtures/{python,java,cpp,c}/{project1,project2}`. Python tests live in `tests/python`; VS Code tests live in `tests/extension`.
-
-## Verification
-
-```powershell
-& .\.venv\Scripts\python.exe -m black --check src\python2uml tests\python
-& .\.venv\Scripts\python.exe -m pytest -v
-npm run compile
-npm run lint
-npm test
-```
+Then compile or package the extension with the normal npm scripts.
 
 ## License
 
