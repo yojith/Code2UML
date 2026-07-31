@@ -57,7 +57,7 @@ export function activate(context: vscode.ExtensionContext) {
     ),
   );
 
-  const treeView = vscode.window.createTreeView("python2uml.actions", {
+  const treeView = vscode.window.createTreeView("code2uml.actions", {
     treeDataProvider: new UMLActionsProvider(),
     showCollapseAll: false,
   });

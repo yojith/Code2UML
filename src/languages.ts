@@ -10,24 +10,24 @@ export const LANGUAGES: readonly {
     id: "python",
     label: "Python",
     extensions: ["py"],
-    commandId: "python2uml.generatePython",
+    commandId: "code2uml.generatePython",
   },
   {
     id: "java",
     label: "Java",
     extensions: ["java"],
-    commandId: "python2uml.generateJava",
+    commandId: "code2uml.generateJava",
   },
   {
     id: "cpp",
     label: "C++",
     extensions: ["cpp", "cc", "cxx", "hpp", "hh", "h"],
-    commandId: "python2uml.generateCpp",
+    commandId: "code2uml.generateCpp",
   },
   {
     id: "c",
     label: "C",
     extensions: ["c", "h"],
-    commandId: "python2uml.generateC",
+    commandId: "code2uml.generateC",
   },
 ];
