@@ -111,14 +111,16 @@ export function resolveRuntime(
   requireFile(pythonExec, "Bundled Python executable");
   requireVisualCppRuntime(systemRoot);
   const dotExec = resolveGraphvizOnPath(graphvizPath);
+  const runtimeEnv = {
+    ...process.env,
+    PATH: process.env.PATH,
+    PYTHONNOUSERSITE: "1",
+    PYTHONUNBUFFERED: "1",
+  };
   return {
     pythonExec,
     dotExec,
-    env: {
-      ...process.env,
-      PYTHONNOUSERSITE: "1",
-      PYTHONUNBUFFERED: "1",
-    },
+    env: runtimeEnv,
   };
 }
 
