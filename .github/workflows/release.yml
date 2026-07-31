@@ -49,4 +49,4 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - name: Publish to VS Code Marketplace
-        run: npx vsce publish --packagePath python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix --azure-credentials ${{ secrets.AZURE_CREDENTIALS }}
+        run: npx vsce publish --packagePath python2uml-win32-x64-${{ github.event.release.tag_name }}.vsix --azure-credential
