@@ -16,9 +16,9 @@ The preview can save diagrams as SVG, PNG, PDF, JPG, or draw.io files.
 
 ## Requirements
 
-The packaged extension supports Windows x64 and includes its own Python runtime. You do not need to install Python or pip.
+The packaged extension supports Windows x64, Linux x64/ARM64, and macOS x64/Apple Silicon. Each platform package includes its own Python runtime, so you do not need to install Python or pip.
 
-Install [Graphviz](https://graphviz.org/download/), add the directory containing `dot.exe` to `PATH`, and restart VS Code. Code2UML uses Graphviz to lay out and render diagrams.
+Install [Graphviz](https://graphviz.org/download/), add the directory containing `dot` (`dot.exe` on Windows) to `PATH`, and restart VS Code. Code2UML uses Graphviz to lay out and render diagrams.
 
 ## Command line
 
@@ -32,10 +32,12 @@ Graphviz must also be available on `PATH` when using the CLI.
 
 ## Developer build
 
-The extension's Python runtime is generated into `python-runtime/` and packaged with the VSIX. From a Windows x64 development environment, build it with:
+The extension's Python runtime is generated into `python-runtime/` and packaged with the VSIX. Build the runtime for your host platform with:
 
 ```powershell
 npm run build:runtime:win32-x64
+# or build:runtime:linux-x64, build:runtime:linux-arm64,
+# build:runtime:darwin-x64, build:runtime:darwin-arm64
 ```
 
 Then compile or package the extension with the normal npm scripts.

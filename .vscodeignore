@@ -25,6 +25,7 @@ test.drawio
 /test.svg
 /uml_diagram.svg
 *.png
+!media/python2uml.png
 .env
 .gitignore
 .gitattributes

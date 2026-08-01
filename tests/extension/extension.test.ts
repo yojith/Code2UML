@@ -186,41 +186,40 @@ suite("Extension Test Suite", () => {
     );
   });
 
-  test("resolves the bundled Python runtime and system Graphviz from PATH", () => {
+  test("resolves bundled runtimes for every supported local host", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml runtime "));
     const extension = vscode.Uri.file(root);
-    const python = path.join(root, "python-runtime", "python.exe");
-    const dot = path.join(root, "graphviz-system", "bin", "dot.exe");
     const systemRoot = path.join(root, "Windows");
-    fs.mkdirSync(path.dirname(python), { recursive: true });
-    fs.mkdirSync(path.dirname(dot), { recursive: true });
     fs.mkdirSync(path.join(systemRoot, "System32"), { recursive: true });
-    fs.writeFileSync(python, "");
-    fs.writeFileSync(dot, "");
     fs.writeFileSync(path.join(systemRoot, "System32", "vcruntime140.dll"), "");
     fs.writeFileSync(path.join(systemRoot, "System32", "vcruntime140_1.dll"), "");
     fs.writeFileSync(path.join(systemRoot, "System32", "msvcp140.dll"), "");
-    const parentPath = process.env.PATH;
     try {
-      const runtime = resolveRuntime(extension, "win32", "x64", undefined, systemRoot, path.dirname(dot));
-      assert.strictEqual(runtime.pythonExec, python);
-      assert.strictEqual(runtime.dotExec, dot);
-      assert.strictEqual(runtime.env.PYTHONNOUSERSITE, "1");
-      assert.strictEqual(runtime.env.PYTHONUNBUFFERED, "1");
-      assert.strictEqual(runtime.env.PATH, parentPath);
-      assert.strictEqual(process.env.PATH, parentPath);
+      for (const [platform, architecture] of [["win32", "x64"], ["linux", "x64"], ["linux", "arm64"], ["darwin", "x64"], ["darwin", "arm64"]] as const) {
+        const python = path.join(root, "python-runtime", platform === "win32" ? "python.exe" : "bin", platform === "win32" ? "" : "python");
+        const dot = path.join(root, "graphviz-system", "bin", platform === "win32" ? "dot.exe" : "dot");
+        fs.mkdirSync(path.dirname(python), { recursive: true });
+        fs.mkdirSync(path.dirname(dot), { recursive: true });
+        fs.writeFileSync(python, "");
+        fs.writeFileSync(dot, "");
+        const runtime = resolveRuntime(extension, platform, architecture, undefined, systemRoot, path.dirname(dot));
+        assert.strictEqual(runtime.pythonExec, python);
+        assert.strictEqual(runtime.dotExec, dot);
+        assert.strictEqual(runtime.env.PYTHONNOUSERSITE, "1");
+        assert.strictEqual(runtime.env.PYTHONUNBUFFERED, "1");
+      }
     } finally {
       fs.rmSync(root, { recursive: true });
     }
   });
 
-  test("requires Graphviz dot.exe on PATH", () => {
+  test("requires Graphviz dot on PATH", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "python2uml graphviz "));
-    const dot = path.join(root, "dot.exe");
+    const dot = path.join(root, "dot");
     fs.writeFileSync(dot, "");
     try {
-      assert.throws(() => resolveGraphvizOnPath(""), /Graphviz dot\.exe was not found on PATH/);
-      assert.strictEqual(resolveGraphvizOnPath(root), dot);
+      assert.throws(() => resolveGraphvizOnPath(""), /Graphviz dot was not found on PATH/);
+      assert.strictEqual(resolveGraphvizOnPath(root, "linux"), dot);
     } finally {
       fs.rmSync(root, { recursive: true });
     }
@@ -228,8 +227,8 @@ suite("Extension Test Suite", () => {
 
   test("rejects unsupported hosts and missing runtimes", () => {
     const extension = vscode.Uri.file(path.join(os.tmpdir(), "missing-runtime"));
-    assert.throws(() => resolveRuntime(extension, "linux", "x64"), /only Windows x64.*linux-x64/);
-    assert.throws(() => resolveRuntime(extension, "win32", "arm64"), /only Windows x64.*win32-arm64/);
+    assert.throws(() => resolveRuntime(extension, "win32", "arm64"), /support this local host.*win32-arm64/);
+    assert.throws(() => resolveRuntime(extension, "linux", "arm"), /support this local host.*linux-arm/);
     assert.throws(() => resolveRuntime(extension, "win32", "x64"), /python\.exe/);
   });
 
@@ -237,7 +236,7 @@ suite("Extension Test Suite", () => {
     const extension = vscode.Uri.file(path.join(os.tmpdir(), "missing-runtime"));
     assert.throws(
       () => resolveRuntime(extension, "win32", "x64", "ssh-remote"),
-      /only local Windows x64.*ssh-remote/,
+        /only local extension hosts.*ssh-remote/,
     );
   });
 

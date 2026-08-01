@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Platform-specific Linux x64/ARM64 and macOS x64/ARM64 VSIX bundles with their own Python runtimes.
+
+### Changed
+
+- Use the Code2UML logo in the VS Code Marketplace as well as the Activity Bar.
+
 ## [0.1.1] - 2026-07-28
 
 ### Added

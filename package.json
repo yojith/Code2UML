@@ -2,7 +2,8 @@
   "name": "python2uml",
   "displayName": "Code2UML",
   "description": "",
-  "version": "0.1.1",
+  "icon": "media/python2uml.png",
+  "version": "0.1.2",
   "publisher": "yojith",
   "repository": {
     "type": "git",
@@ -90,7 +91,11 @@
     "lint": "eslint src tests/extension",
     "test": "vscode-test",
     "package": "vsce package --no-dependencies",
-    "build:runtime:win32-x64": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-runtime.ps1"
+    "build:runtime:win32-x64": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-runtime.ps1",
+    "build:runtime:linux-x64": "bash scripts/build-linux-runtime.sh",
+    "build:runtime:linux-arm64": "bash scripts/build-linux-runtime.sh",
+    "build:runtime:darwin-x64": "bash scripts/build-macos-runtime.sh",
+    "build:runtime:darwin-arm64": "bash scripts/build-macos-runtime.sh"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
