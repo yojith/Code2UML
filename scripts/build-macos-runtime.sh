@@ -9,11 +9,11 @@ trap 'rm -rf "$temporary"' EXIT
 
 rm -rf "$runtime" "$licenses"
 uv python install --no-bin 3.12.10
-source_python="$(uv python find --managed-python 3.12.10)"
-source_prefix="$($source_python -c 'import sys; print(sys.prefix)')"
+source_python="$(uv python find --no-project --managed-python --no-python-downloads 3.12.10)"
+source_prefix="$("$source_python" -c 'import sys; print(sys.prefix)')"
 cp -a "$source_prefix" "$runtime"
-license="$(find "$source_prefix" -maxdepth 1 -type f -iname 'LICENSE*' -print -quit)"
-test -n "$license"
+license="$source_prefix/LICENSE.txt"
+test -f "$license" || { echo "Missing bundled Python license: $license" >&2; exit 1; }
 mkdir -p "$licenses/python"
 cp "$license" "$licenses/python/LICENSE.txt"
 runtime_python="$runtime/bin/python"
