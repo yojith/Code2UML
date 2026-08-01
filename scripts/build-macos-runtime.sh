@@ -24,6 +24,7 @@ mkdir -p "$site_packages"
 uv export --locked --no-dev --no-emit-project --output-file "$temporary/requirements.txt"
 uv pip install --python "$runtime_python" --only-binary=:all: --requirement "$temporary/requirements.txt" --target "$site_packages"
 uv pip install --python "$runtime_python" --no-deps --target "$site_packages" "$root"
-find "$site_packages" -type d -name __pycache__ -prune -exec rm -rf {} +
-find "$site_packages" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+rm -rf "$runtime/share/terminfo"
+find "$runtime" -type d -name __pycache__ -prune -exec rm -rf {} +
+find "$runtime" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 "$runtime_python" -c 'import python2uml, graphviz, tree_sitter'
