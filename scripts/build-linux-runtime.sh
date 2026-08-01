@@ -27,4 +27,4 @@ uv pip install --python "$runtime_python" --no-deps --target "$site_packages" "$
 rm -rf "$runtime/share/terminfo"
 find "$runtime" -type d -name __pycache__ -prune -exec rm -rf {} +
 find "$runtime" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-"$runtime_python" -c 'import python2uml, graphviz, tree_sitter'
+PYTHONDONTWRITEBYTECODE=1 "$runtime_python" -c 'import python2uml, graphviz, tree_sitter'
