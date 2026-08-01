@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'status=$?; echo "Runtime build failed at line $LINENO: $BASH_COMMAND" >&2; exit "$status"' ERR
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runtime="$root/python-runtime"
