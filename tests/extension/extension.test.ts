@@ -227,8 +227,8 @@ suite("Extension Test Suite", () => {
 
   test("rejects unsupported hosts and missing runtimes", () => {
     const extension = vscode.Uri.file(path.join(os.tmpdir(), "missing-runtime"));
-    assert.throws(() => resolveRuntime(extension, "win32", "arm64"), /supported local host.*win32-arm64/);
-    assert.throws(() => resolveRuntime(extension, "linux", "arm"), /supported local host.*linux-arm/);
+    assert.throws(() => resolveRuntime(extension, "win32", "arm64"), /support this local host.*win32-arm64/);
+    assert.throws(() => resolveRuntime(extension, "linux", "arm"), /support this local host.*linux-arm/);
     assert.throws(() => resolveRuntime(extension, "win32", "x64"), /python\.exe/);
   });
 

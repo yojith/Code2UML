@@ -8,7 +8,7 @@ temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 
 rm -rf "$runtime" "$licenses"
-uv python install --managed-python --no-bin 3.12.10
+uv python install --no-bin 3.12.10
 source_python="$(uv python find --managed-python 3.12.10)"
 source_prefix="$($source_python -c 'import sys; print(sys.prefix)')"
 cp -a "$source_prefix" "$runtime"
